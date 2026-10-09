@@ -14,7 +14,9 @@ function echoService(name: string) {
     res.status(404).json({ error: { code: 'PROFILE_NOT_FOUND', message: 'Profile not found' } });
   });
   app.all('/{*rest}', express.raw({ type: () => true }), (req, res) => {
-    res.setHeader('Access-Control-Allow-Origin', ORIGIN); // must not leak through the gateway
+    res.setHeader('Access-Control-Allow-Origin', 'https://evil.example'); // must not leak through the gateway
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader('Access-Control-Expose-Headers', 'X-Secret');
     res.status(req.method === 'POST' ? 201 : 200).json({
       service: name,
       method: req.method,
@@ -137,7 +139,10 @@ test('JSON and raw bodies, methods and downstream statuses pass through unchange
 test('downstream CORS headers are replaced by the gateway ones', async () => {
   await withGateway(async (base) => {
     const res = await fetch(`${base}/api/candidates/profiles/me`, { headers: { ...auth, Origin: ORIGIN } });
-    assert.equal(res.headers.get('access-control-allow-origin'), ORIGIN); // exactly one value
+    assert.equal(res.status, 200);
+    assert.equal(res.headers.get('access-control-allow-origin'), ORIGIN);
+    assert.equal(res.headers.get('access-control-allow-credentials'), null);
+    assert.equal(res.headers.get('access-control-expose-headers'), null);
   });
 });
 
