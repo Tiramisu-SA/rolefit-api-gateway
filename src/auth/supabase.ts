@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { logger } from '../utils/logger';
 
 export interface AuthClaims {
   sub: string;
@@ -21,7 +22,11 @@ export function createClaimsVerifier(url: string, publishableKey: string): Claim
 
   return async (token) => {
     const { data, error } = await supabase.auth.getClaims(token);
-    if (error || !data?.claims || typeof data.claims.sub !== 'string') return null;
+    if (error) {
+      logger.warn('Supabase token verification failed:', error.name, error.message);
+      return null;
+    }
+    if (!data?.claims || typeof data.claims.sub !== 'string') return null;
     return data.claims as AuthClaims;
   };
 }

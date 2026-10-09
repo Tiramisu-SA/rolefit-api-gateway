@@ -91,6 +91,12 @@ Service errors (for example `404 PROFILE_NOT_FOUND`) are passed through unchange
 are mapped: `INVALID_ARGUMENT` → 400 `VALIDATION_ERROR` (with `details`), `NOT_FOUND` → 404,
 `FAILED_PRECONDITION` → 409 `INVALID_STATE`, `PERMISSION_DENIED` → 403, `UNAUTHENTICATED` → 401.
 
+## Security note
+
+The gateway is the security boundary only if the services' ports (3001, 3002, 50051/50052) are not publicly
+reachable, because Job Discovery (and Candidate Profile with `AUTH_MODE=mock`) trust the `X-User-Id` header.
+Outside local development, run Candidate Profile with `AUTH_MODE=jwt`.
+
 ## Example requests
 
 ```bash

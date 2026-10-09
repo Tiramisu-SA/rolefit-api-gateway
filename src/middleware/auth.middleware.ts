@@ -1,5 +1,6 @@
 import type { NextFunction, Request, Response } from 'express';
 import type { AuthClaims, ClaimsVerifier } from '../auth/supabase';
+import { logger } from '../utils/logger';
 import { forbidden, invalidToken, missingToken, tokenExpired } from '../utils/errors';
 
 export interface GatewayUser {
@@ -52,7 +53,8 @@ export function authenticate(verifyClaims: ClaimsVerifier) {
     let claims: AuthClaims | null;
     try {
       claims = await verifyClaims(token);
-    } catch {
+    } catch (err) {
+      logger.warn('Token verifier threw:', err instanceof Error ? err.message : String(err));
       claims = null;
     }
     if (!claims) {
