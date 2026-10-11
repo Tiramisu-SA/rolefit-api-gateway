@@ -110,11 +110,16 @@ export function requireSeeker(req: Request, _res: Response, next: NextFunction):
   next();
 }
 
-/** Recruiters must carry a company; everyone else passes (the service checks ownership). */
-export function requireCompanyIfRecruiter(req: Request, res: Response, next: NextFunction): void {
-  if (req.user?.role === 'recruiter') {
+/** Only job seekers and recruiters may read one application; recruiters must also carry a company (the service checks ownership). */
+export function requireSeekerOrCompanyRecruiter(req: Request, res: Response, next: NextFunction): void {
+  const role = req.user?.role;
+  if (role === 'seeker') {
+    next();
+    return;
+  }
+  if (role === 'recruiter') {
     requireCompany(req, res, next);
     return;
   }
-  next();
+  next(forbidden('This endpoint is for job seeker or recruiter accounts only'));
 }

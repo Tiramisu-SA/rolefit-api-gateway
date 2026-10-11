@@ -59,17 +59,20 @@ test('recruiter applicant list keeps the query and gets the company from the tok
   });
 });
 
-test('recruiter status update forwards method and JSON body unchanged', async () => {
+test('recruiter status update forwards method and body with verified identity, replacing forged headers', async () => {
   await withGateway(async (base) => {
     const res = await fetch(`${base}/api/applications/app_1/status`, {
       method: 'PATCH',
-      headers: as('recruiter-token', { 'Content-Type': 'application/json' }),
+      headers: as('recruiter-token', { 'Content-Type': 'application/json', ...forged }),
       body: JSON.stringify({ status: 'Under review', note: 'Review started' }),
     });
     const echo = (await res.json()) as Echo;
     assert.equal(echo.method, 'PATCH');
     assert.equal(echo.url, '/api/applications/app_1/status');
     assert.deepEqual(JSON.parse(echo.body!), { status: 'Under review', note: 'Review started' });
+    assert.equal(echo.headers['x-user-id'], RECRUITER);
+    assert.equal(echo.headers['x-user-role'], 'recruiter');
+    assert.equal(echo.headers['x-company-id'], COMPANY_ID);
   });
 });
 
@@ -83,19 +86,46 @@ test('one application can be read by a seeker or a recruiter with a company', as
   });
 });
 
-test('wrong roles are refused at the gateway', async () => {
+test('a service refusal for another company reaches the client unchanged', async () => {
   await withGateway(async (base) => {
-    const seekerWrite = await fetch(`${base}/api/applications/app_1/status`, {
+    const res = await fetch(`${base}/api/applications/app_foreign/status`, {
       method: 'PATCH',
-      headers: as('seeker-token', { 'Content-Type': 'application/json' }),
+      headers: as('recruiter-token', { 'Content-Type': 'application/json' }),
       body: '{"status":"Offer"}',
     });
-    assert.equal(seekerWrite.status, 403);
-    assert.equal((await errorOf(seekerWrite)).code, 'FORBIDDEN');
-    assert.equal((await fetch(`${base}/api/applications?jobId=job_1`, { headers: as('seeker-token') })).status, 403);
-    assert.equal((await fetch(`${base}/api/applications/mine`, { headers: as('recruiter-token') })).status, 403);
-    const noCompanyWrite = await fetch(`${base}/api/applications/app_1/status`, { method: 'PATCH', headers: as('recruiter-no-company-token') });
-    assert.equal((await errorOf(noCompanyWrite)).code, 'NO_COMPANY');
+    assert.equal(res.status, 403);
+    assert.deepEqual(await errorOf(res), { code: 'FORBIDDEN', message: 'Application belongs to another company' });
+  });
+});
+
+test('a token without a role cannot read an application', async () => {
+  await withGateway(async (base) => {
+    const res = await fetch(`${base}/api/applications/app_1`, { headers: as('no-role-token') });
+    assert.equal(res.status, 403);
+    assert.equal((await errorOf(res)).code, 'FORBIDDEN');
+  });
+});
+
+test('wrong roles are refused at the gateway', async () => {
+  await withGateway(async (base) => {
+    const expectRefused = async (res: Response, code: string) => {
+      assert.equal(res.status, 403);
+      assert.equal((await errorOf(res)).code, code);
+    };
+    await expectRefused(
+      await fetch(`${base}/api/applications/app_1/status`, {
+        method: 'PATCH',
+        headers: as('seeker-token', { 'Content-Type': 'application/json' }),
+        body: '{"status":"Offer"}',
+      }),
+      'FORBIDDEN',
+    );
+    await expectRefused(await fetch(`${base}/api/applications?jobId=job_1`, { headers: as('seeker-token') }), 'FORBIDDEN');
+    await expectRefused(await fetch(`${base}/api/applications/mine`, { headers: as('recruiter-token') }), 'FORBIDDEN');
+    await expectRefused(
+      await fetch(`${base}/api/applications/app_1/status`, { method: 'PATCH', headers: as('recruiter-no-company-token') }),
+      'NO_COMPANY',
+    );
   });
 });
 

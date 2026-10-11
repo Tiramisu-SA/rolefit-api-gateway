@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { requireCompany, requireCompanyIfRecruiter, requireRecruiter, requireSeeker } from '../middleware/auth.middleware';
+import { requireCompany, requireSeekerOrCompanyRecruiter, requireRecruiter, requireSeeker } from '../middleware/auth.middleware';
 import { createServiceProxy } from '../proxy/service-proxy';
 
 /**
@@ -14,7 +14,7 @@ export function createApplicationRoutes(applicationServiceUrl: string): Router {
 
   router.get('/mine', requireSeeker, proxy);
   router.get('/', requireRecruiter, requireCompany, proxy);
-  router.get('/:applicationId', requireCompanyIfRecruiter, proxy);
+  router.get('/:applicationId', requireSeekerOrCompanyRecruiter, proxy);
   router.patch('/:applicationId/status', requireRecruiter, requireCompany, proxy);
 
   return router;

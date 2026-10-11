@@ -38,6 +38,7 @@ export const fakeVerifier: ClaimsVerifier = async (token) => {
     return { sub: RECRUITER, app_metadata: { role: 'recruiter', company_id: COMPANY_ID, company_name: 'Acme Corp' } };
   }
   if (token === 'recruiter-no-company-token') return { sub: RECRUITER, app_metadata: { role: 'recruiter' } };
+  if (token === 'no-role-token') return { sub: SEEKER, app_metadata: {} };
   return null;
 };
 
@@ -55,6 +56,9 @@ export function echoService(name: string) {
   });
   app.get('/api/applications/missing', (_req, res) => {
     res.status(404).json({ error: { code: 'APPLICATION_NOT_FOUND', message: 'Application not found' } });
+  });
+  app.patch('/api/applications/app_foreign/status', (_req, res) => {
+    res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Application belongs to another company' } });
   });
   app.all('/{*rest}', express.raw({ type: () => true }), (req, res) => {
     res.setHeader('Access-Control-Allow-Origin', 'https://evil.example'); // must not leak through the gateway
