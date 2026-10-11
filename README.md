@@ -9,13 +9,14 @@ Supabase access token, then routes the request to the right microservice. It hol
 Frontend ──Authorization: Bearer <Supabase JWT>──▶ API Gateway (:8080)
                                                      ├─ HTTP ─▶ Candidate Profile Service (:3001)
                                                      ├─ HTTP ─▶ Job Discovery Service     (:3002)
+                                                     ├─ HTTP ─▶ Application Service       (:3004, in development)
                                                      └─ gRPC ─▶ Job Posting Service       (:50052)
 ```
 
 For every `/api/*` request the gateway:
 
 1. verifies the Supabase JWT (`supabase.auth.getClaims()`), returning `401` if it is missing, invalid or expired;
-2. sets `X-User-Id` to the verified user id (a client-sent value is replaced) and keeps `Authorization`;
+2. sets `X-User-Id`, `X-User-Role` and (for recruiters) `X-Company-Id` from the token, replacing any client-sent values, and keeps `Authorization`;
    For recruiters, the company comes from the token too: `app_metadata.company_id` (set by the Supabase signup trigger) is sent to Job Posting as `x-company-id`; a recruiter token without it gets `403 NO_COMPANY`.
 3. forwards the request and returns the service's status and body unchanged.
 
@@ -26,8 +27,14 @@ For every `/api/*` request the gateway:
 | `GET /health` | gateway (no auth) | – |
 | `/api/candidates/*` | Candidate Profile Service | `/api/*`, e.g. `/api/candidates/profiles/me` → `/api/profiles/me` |
 | `/api/discovery/*` | Job Discovery Service | `/api/*`, e.g. `/api/discovery/recommendations` → `/api/recommendations` |
+| `GET /api/applications/mine` (seekers) | Application Service | same path |
+| `GET /api/applications?jobId=` (recruiters) | Application Service | same path |
+| `GET /api/applications/:applicationId` (seeker or recruiter) | Application Service | same path |
+| `PATCH /api/applications/:applicationId/status` (recruiters) | Application Service | same path |
 | `GET /api/jobs`, `GET /api/jobs/:jobId` | Job Posting Service | gRPC `ListJobs` (open jobs) / `GetJob` |
 | `/api/jobs/mine/*` (recruiters only) | Job Posting Service | gRPC `ListJobs`, `CreateJob`, `GetJob`, `UpdateJob`, `DeleteJob`, `PublishJob`, `CloseJob`, `ReopenJob`, `Get/Attach/DeleteResumeTemplate` |
+
+Other paths under `/api/applications` (for example submitting an application) are a gateway `404`.
 
 The Job Posting Service only speaks gRPC, so the gateway translates these REST calls to gRPC. Bodies and
 responses are the proto messages as JSON (snake_case, enum names such as `JOB_STATUS_OPEN`), unchanged.
@@ -58,6 +65,7 @@ The gateway listens on `http://localhost:8080`. Start the services first:
 | Candidate Profile | `npm run dev` in `rolefit-candidate-profile-service` | REST 3001, gRPC 50051 |
 | Job Posting | `npm run dev` in `rolefit-job-posting-service` | gRPC 50052 |
 | Job Discovery | `npm run dev` in `rolefit-job-discovery-service` | REST 3002 |
+| Application | per its own repo (owner: Pun) | REST 3004 (in development) |
 | Frontend | `npm run dev` in `rolefit-frontend` (`NEXT_PUBLIC_API_GATEWAY_URL=http://localhost:8080`) | 3000 |
 
 Job Posting's local `.env` sets `HTTP_PORT=3002`, which clashes with Job Discovery. That port only serves
@@ -71,6 +79,7 @@ Job Posting's own `/health`, so start Job Discovery first or change Job Posting'
 | `FRONTEND_URL` | no | `http://localhost:3000` | The one origin allowed by CORS |
 | `CANDIDATE_PROFILE_SERVICE_URL` | yes | – | e.g. `http://localhost:3001` |
 | `JOB_DISCOVERY_SERVICE_URL` | yes | – | e.g. `http://localhost:3002` |
+| `APPLICATION_SERVICE_URL` | yes | – | e.g. `http://localhost:3004` |
 | `JOB_POSTING_GRPC_URL` | yes | – | gRPC `host:port`, e.g. `localhost:50052` |
 | `SUPABASE_URL` | yes | – | Supabase project URL (Auth project) |
 | `SUPABASE_PUBLISHABLE_KEY` | yes | – | Supabase publishable key (never the service role key) |

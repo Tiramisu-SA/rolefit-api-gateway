@@ -41,8 +41,8 @@ function looksExpired(token: string): boolean {
 
 /**
  * Verifies the Supabase access token, then forwards the verified identity:
- * `X-User-Id` is always the token's subject (a client-sent value is replaced),
- * `X-Company-Id` from the client is dropped, and `Authorization` is kept so
+ * sets `X-User-Id`, `X-User-Role` and `X-Company-Id` from the token (client
+ * values are always replaced or removed), and keeps `Authorization` so
  * services that verify tokens themselves still can.
  */
 export function authenticate(verifyClaims: ClaimsVerifier) {
@@ -73,8 +73,12 @@ export function authenticate(verifyClaims: ClaimsVerifier) {
     const companyName = text(meta.company_name);
     if (companyId) req.user.companyId = companyId;
     if (companyName) req.user.companyName = companyName;
+    // Downstream services trust these headers, so they only ever carry verified values.
+    delete req.headers['x-user-role'];
     delete req.headers['x-company-id'];
     req.headers['x-user-id'] = claims.sub;
+    if (req.user.role) req.headers['x-user-role'] = req.user.role;
+    if (companyId) req.headers['x-company-id'] = companyId;
     next();
   };
 }
@@ -92,6 +96,24 @@ export function requireRecruiter(req: Request, _res: Response, next: NextFunctio
 export function requireCompany(req: Request, _res: Response, next: NextFunction): void {
   if (!req.user?.companyId) {
     next(noCompany());
+    return;
+  }
+  next();
+}
+
+/** Lets only job seeker accounts through (after `authenticate`). */
+export function requireSeeker(req: Request, _res: Response, next: NextFunction): void {
+  if (req.user?.role !== 'seeker') {
+    next(forbidden('This endpoint is for job seeker accounts only'));
+    return;
+  }
+  next();
+}
+
+/** Recruiters must carry a company; everyone else passes (the service checks ownership). */
+export function requireCompanyIfRecruiter(req: Request, res: Response, next: NextFunction): void {
+  if (req.user?.role === 'recruiter') {
+    requireCompany(req, res, next);
     return;
   }
   next();

@@ -11,6 +11,7 @@ const app = createApp({
   jobPosting: createJobPostingCaller(config.jobPostingGrpcUrl),
   candidateProfileUrl: config.candidateProfileUrl,
   jobDiscoveryUrl: config.jobDiscoveryUrl,
+  applicationServiceUrl: config.applicationServiceUrl,
   frontendUrl: config.frontendUrl,
 });
 
@@ -18,5 +19,6 @@ app.listen(config.port, () => {
   logger.info(`API Gateway listening on http://localhost:${config.port}`);
   logger.info(`  /api/candidates/* → ${config.candidateProfileUrl}/api/*`);
   logger.info(`  /api/discovery/*  → ${config.jobDiscoveryUrl}/api/*`);
+  logger.info(`  /api/applications/* → ${config.applicationServiceUrl}/api/applications/*`);
   logger.info(`  /api/jobs/*       → gRPC ${config.jobPostingGrpcUrl}`);
 });

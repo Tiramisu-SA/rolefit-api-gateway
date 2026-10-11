@@ -1,32 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import express from 'express';
 import { createApp, type AppDependencies } from '../src/app';
 import type { JobPostingCaller } from '../src/grpc/job-posting.client';
-import { errorOf, fakeVerifier, listen, SEEKER } from './helpers';
+import { echoService, errorOf, fakeVerifier, listen, SEEKER } from './helpers';
 
 const ORIGIN = 'http://localhost:3000';
-
-/** A downstream service that echoes what it received. */
-function echoService(name: string) {
-  const app = express();
-  app.get('/api/missing', (_req, res) => {
-    res.status(404).json({ error: { code: 'PROFILE_NOT_FOUND', message: 'Profile not found' } });
-  });
-  app.all('/{*rest}', express.raw({ type: () => true }), (req, res) => {
-    res.setHeader('Access-Control-Allow-Origin', 'https://evil.example'); // must not leak through the gateway
-    res.setHeader('Access-Control-Allow-Credentials', 'true');
-    res.setHeader('Access-Control-Expose-Headers', 'X-Secret');
-    res.status(req.method === 'POST' ? 201 : 200).json({
-      service: name,
-      method: req.method,
-      url: req.originalUrl,
-      headers: req.headers,
-      body: Buffer.isBuffer(req.body) ? req.body.toString('utf8') : null,
-    });
-  });
-  return app;
-}
 
 interface Echo {
   service: string;
@@ -47,6 +25,7 @@ async function withGateway(fn: (base: string) => Promise<void>, overrides: Parti
       jobPosting: noJobs,
       candidateProfileUrl: profile.base,
       jobDiscoveryUrl: discovery.base,
+      applicationServiceUrl: 'http://127.0.0.1:1',
       frontendUrl: ORIGIN,
       ...overrides,
     }),

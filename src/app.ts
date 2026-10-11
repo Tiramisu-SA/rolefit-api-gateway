@@ -6,6 +6,7 @@ import { cors } from './middleware/cors.middleware';
 import { errorHandler, notFoundHandler } from './middleware/error.middleware';
 import { requestLogger } from './middleware/logger.middleware';
 import { createServiceProxy } from './proxy/service-proxy';
+import { createApplicationRoutes } from './routes/application.routes';
 import { createJobRoutes } from './routes/job.routes';
 
 export interface AppDependencies {
@@ -15,6 +16,8 @@ export interface AppDependencies {
   jobPosting: JobPostingCaller;
   candidateProfileUrl: string;
   jobDiscoveryUrl: string;
+  /** Application Service REST base URL (still in development). */
+  applicationServiceUrl: string;
   /** The web frontend origin allowed by CORS, e.g. http://localhost:3000. */
   frontendUrl: string;
 }
@@ -37,6 +40,7 @@ export function createApp(deps: AppDependencies): Express {
   app.use('/api/candidates', createServiceProxy(deps.candidateProfileUrl, 'candidate profile'));
   app.use('/api/discovery', createServiceProxy(deps.jobDiscoveryUrl, 'job discovery'));
   app.use('/api/jobs', createJobRoutes(deps.jobPosting));
+  app.use('/api/applications', createApplicationRoutes(deps.applicationServiceUrl));
 
   app.use(notFoundHandler);
   app.use(errorHandler);

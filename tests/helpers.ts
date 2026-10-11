@@ -1,6 +1,6 @@
 import type { Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
-import type { Express } from 'express';
+import express, { type Express } from 'express';
 import type { ClaimsVerifier } from '../src/auth/supabase';
 
 /** Starts the app on a random local port. */
@@ -45,4 +45,28 @@ export const fakeVerifier: ClaimsVerifier = async (token) => {
 export function jwtWithExp(exp: number): string {
   const part = (value: object) => Buffer.from(JSON.stringify(value)).toString('base64url');
   return `${part({ alg: 'ES256', typ: 'JWT' })}.${part({ sub: SEEKER, exp })}.signature`;
+}
+
+/** A downstream service that echoes what it received. */
+export function echoService(name: string) {
+  const app = express();
+  app.get('/api/missing', (_req, res) => {
+    res.status(404).json({ error: { code: 'PROFILE_NOT_FOUND', message: 'Profile not found' } });
+  });
+  app.get('/api/applications/missing', (_req, res) => {
+    res.status(404).json({ error: { code: 'APPLICATION_NOT_FOUND', message: 'Application not found' } });
+  });
+  app.all('/{*rest}', express.raw({ type: () => true }), (req, res) => {
+    res.setHeader('Access-Control-Allow-Origin', 'https://evil.example'); // must not leak through the gateway
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader('Access-Control-Expose-Headers', 'X-Secret');
+    res.status(req.method === 'POST' ? 201 : 200).json({
+      service: name,
+      method: req.method,
+      url: req.originalUrl,
+      headers: req.headers,
+      body: Buffer.isBuffer(req.body) ? req.body.toString('utf8') : null,
+    });
+  });
+  return app;
 }

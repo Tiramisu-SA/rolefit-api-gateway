@@ -6,18 +6,20 @@ import { logger } from '../utils/logger';
 const PROXY_TIMEOUT_MS = 10_000;
 
 /**
- * Forwards everything under the mount path to the service's /api, e.g.
- * /api/candidates/profiles/me → <target>/api/profiles/me. Method, query,
+ * Forwards everything under the mount path to the service's `upstreamPrefix`
+ * (default /api), e.g. /api/candidates/profiles/me → <target>/api/profiles/me.
+ * The Application Service keeps its own prefix: /api/applications. Method, query,
  * headers and the raw body stream go through as-is, and the service's status
  * and body come back unchanged (a 404 stays a 404).
  */
-export function createServiceProxy(target: string, service: string) {
+export function createServiceProxy(target: string, service: string, upstreamPrefix = '/api') {
   return createProxyMiddleware<Request, Response>({
     target,
     changeOrigin: true,
     proxyTimeout: PROXY_TIMEOUT_MS,
-    // Under app.use('/api/candidates', …) the path seen here is the rest, e.g. /profiles/me.
-    pathRewrite: (path) => `/api${path}`,
+    // The path seen here is relative to the mount, e.g. /profiles/me under /api/candidates.
+    // A bare "/" (with or without a query) maps to the prefix itself: /?jobId=1 → /api/applications?jobId=1.
+    pathRewrite: (path) => (path === '/' || path.startsWith('/?') ? upstreamPrefix + path.slice(1) : upstreamPrefix + path),
     on: {
       proxyRes: (proxyRes) => {
         // The gateway owns CORS; a second Access-Control-* set would make the browser reject the response.

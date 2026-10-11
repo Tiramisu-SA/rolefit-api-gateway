@@ -12,6 +12,7 @@ function app() {
     res.json({
       user: req.user,
       xUserId: req.get('x-user-id') ?? null,
+      xUserRole: req.get('x-user-role') ?? null,
       xCompanyId: req.get('x-company-id') ?? null,
       authorization: req.get('authorization') ?? null,
     });
@@ -89,12 +90,14 @@ test('a valid token sets req.user, overwrites spoofed identity headers and keeps
   const { status, body } = await call('/echo', {
     Authorization: 'Bearer seeker-token',
     'X-User-Id': '99999999-9999-4999-8999-999999999999',
+    'X-User-Role': 'recruiter',
     'X-Company-Id': 'co-spoofed',
   });
   assert.equal(status, 200);
   assert.deepEqual(body, {
     user: { id: SEEKER, role: 'seeker' },
     xUserId: SEEKER,
+    xUserRole: 'seeker',
     xCompanyId: null,
     authorization: 'Bearer seeker-token',
   });
@@ -121,4 +124,15 @@ test('requireCompany refuses a recruiter token without company_id with 403 NO_CO
   assert.deepEqual(body.error, { code: 'NO_COMPANY', message: 'This recruiter account has no company yet. Sign out and sign in again.' });
   const ok = await call('/recruiter-company', { Authorization: 'Bearer recruiter-token' });
   assert.equal(ok.status, 200);
+});
+
+test('recruiter identity headers come from the token, replacing client values', async () => {
+  const { body } = await call('/echo', {
+    Authorization: 'Bearer recruiter-token',
+    'X-User-Role': 'admin',
+    'X-Company-Id': 'co-evil-000000',
+  });
+  assert.equal(body.xUserId, RECRUITER_ID);
+  assert.equal(body.xUserRole, 'recruiter');
+  assert.equal(body.xCompanyId, COMPANY_ID);
 });

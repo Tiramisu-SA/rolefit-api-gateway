@@ -7,6 +7,7 @@ const valid = {
   FRONTEND_URL: 'http://localhost:3000',
   CANDIDATE_PROFILE_SERVICE_URL: 'http://localhost:3001/',
   JOB_DISCOVERY_SERVICE_URL: 'http://localhost:3002',
+  APPLICATION_SERVICE_URL: 'http://localhost:3004/',
   JOB_POSTING_GRPC_URL: 'localhost:50052',
   SUPABASE_URL: 'https://abc.supabase.co',
   SUPABASE_PUBLISHABLE_KEY: 'sb_publishable_x',
@@ -17,6 +18,7 @@ test('loadConfig reads every variable and strips trailing slashes', () => {
   assert.equal(config.port, 8080);
   assert.equal(config.candidateProfileUrl, 'http://localhost:3001');
   assert.equal(config.jobDiscoveryUrl, 'http://localhost:3002');
+  assert.equal(config.applicationServiceUrl, 'http://localhost:3004');
   assert.equal(config.jobPostingGrpcUrl, 'localhost:50052');
 });
 
@@ -36,6 +38,7 @@ test('loadConfig reports every missing or invalid variable at once', () => {
         'PORT must be',
         'CANDIDATE_PROFILE_SERVICE_URL must start with http',
         'JOB_DISCOVERY_SERVICE_URL is required',
+        'APPLICATION_SERVICE_URL is required',
         'JOB_POSTING_GRPC_URL is required',
         'SUPABASE_URL is required',
         'SUPABASE_PUBLISHABLE_KEY is required',
