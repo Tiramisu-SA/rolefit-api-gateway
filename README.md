@@ -16,8 +16,10 @@ Frontend ──Authorization: Bearer <Supabase JWT>──▶ API Gateway (:8080)
 For every `/api/*` request the gateway:
 
 1. verifies the Supabase JWT (`supabase.auth.getClaims()`), returning `401` if it is missing, invalid or expired;
-2. sets `X-User-Id`, `X-User-Role` and (for recruiters) `X-Company-Id` from the token, replacing any client-sent values, and keeps `Authorization`;
-   For recruiters, the company comes from the token too: `app_metadata.company_id` (set by the Supabase signup trigger) is sent to Job Posting as `x-company-id`; a recruiter token without it gets `403 NO_COMPANY`.
+2. sets `X-User-Id` (token `sub`), `X-User-Role` (`app_metadata.role`) and, for recruiters, `X-Company-Id`
+   (`app_metadata.company_id`, set by the Supabase signup trigger), replacing any client-sent values, and keeps
+   `Authorization`. Job Posting receives the same user and company as gRPC metadata. Recruiter routes refuse a
+   token without a company with `403 NO_COMPANY`;
 3. forwards the request and returns the service's status and body unchanged.
 
 ## Services and routes
@@ -50,7 +52,7 @@ responses are the proto messages as JSON (snake_case, enum names such as `JOB_ST
 
 ## Local setup
 
-Requires Node 20+ and the three services running locally.
+Requires Node 20+ and the services running locally. Routes to a service that isn't running return `503`.
 
 ```bash
 npm install
@@ -63,13 +65,14 @@ The gateway listens on `http://localhost:8080`. Start the services first:
 | Service | Start | Port |
 | --- | --- | --- |
 | Candidate Profile | `npm run dev` in `rolefit-candidate-profile-service` | REST 3001, gRPC 50051 |
-| Job Posting | `npm run dev` in `rolefit-job-posting-service` | gRPC 50052 |
+| Job Posting | `npm run dev` in `rolefit-job-posting-service` (`npm run seed` once for demo jobs) | gRPC 50052, HTTP health `HTTP_PORT` |
 | Job Discovery | `npm run dev` in `rolefit-job-discovery-service` | REST 3002 |
 | Application | per its own repo (owner: Pun) | REST 3004 (in development) |
 | Frontend | `npm run dev` in `rolefit-frontend` (`NEXT_PUBLIC_API_GATEWAY_URL=http://localhost:8080`) | 3000 |
 
-Job Posting's local `.env` sets `HTTP_PORT=3002`, which clashes with Job Discovery. That port only serves
-Job Posting's own `/health`, so start Job Discovery first or change Job Posting's `HTTP_PORT` locally (for example to 3003).
+Ports must not clash: Job Posting's health port (`HTTP_PORT`, default 3002) collides with Job Discovery's
+3002, and Job Discovery's `PORT` must not be 3000 (the frontend). Locally use for example `HTTP_PORT=3003`
+for Job Posting and `PORT=3002` for Job Discovery.
 
 ## Environment variables
 
@@ -91,10 +94,13 @@ Every gateway error uses the services' shape: `{ "error": { "code": "...", "mess
 
 | Status | Code | When |
 | --- | --- | --- |
+| 400 | `MALFORMED_JSON` | invalid JSON body on a `/api/jobs` route |
 | 401 | `MISSING_TOKEN` / `INVALID_TOKEN` / `TOKEN_EXPIRED` | no, bad or expired access token |
-| 403 | `FORBIDDEN` | a non-recruiter calls `/api/jobs/mine/*` |
+| 403 | `FORBIDDEN` | wrong role for the route (e.g. a seeker on `/api/jobs/mine/*` or changing an application status) |
 | 403 | `NO_COMPANY` | a recruiter token has no `company_id` (sign in again after running the Supabase SQL) |
 | 404 | `ROUTE_NOT_FOUND` | unknown gateway route |
+| 413 | `PAYLOAD_TOO_LARGE` | body over the `/api/jobs` limit (1 MB JSON, 3 MB resume template) |
+| 500 | `INTERNAL_ERROR` | unexpected gateway error (details are logged, not returned) |
 | 503 | `SERVICE_UNAVAILABLE` | a service is down or timed out |
 
 Service errors (for example `404 PROFILE_NOT_FOUND`) are passed through unchanged. Job Posting gRPC errors
@@ -103,8 +109,9 @@ are mapped: `INVALID_ARGUMENT` → 400 `VALIDATION_ERROR` (with `details`), `NOT
 
 ## Security note
 
-The gateway is the security boundary only if the services' ports (3001, 3002, 50051/50052) are not publicly
-reachable, because Job Discovery (and Candidate Profile with `AUTH_MODE=mock`) trust the `X-User-Id` header.
+The gateway is the security boundary only if the services' ports (3001, 3002, 3004, 50051/50052) are not
+publicly reachable, because Job Discovery, the Application Service (and Candidate Profile with
+`AUTH_MODE=mock`) trust the identity headers the gateway sets.
 Outside local development, run Candidate Profile with `AUTH_MODE=jwt`.
 
 ## Example requests
