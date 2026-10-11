@@ -12,7 +12,6 @@ const app = createApp({
   candidateProfileUrl: config.candidateProfileUrl,
   jobDiscoveryUrl: config.jobDiscoveryUrl,
   frontendUrl: config.frontendUrl,
-  recruiterCompanyId: config.recruiterCompanyId,
 });
 
 app.listen(config.port, () => {

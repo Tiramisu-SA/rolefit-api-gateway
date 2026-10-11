@@ -16,6 +16,7 @@ For every `/api/*` request the gateway:
 
 1. verifies the Supabase JWT (`supabase.auth.getClaims()`), returning `401` if it is missing, invalid or expired;
 2. sets `X-User-Id` to the verified user id (a client-sent value is replaced) and keeps `Authorization`;
+   For recruiters, the company comes from the token too: `app_metadata.company_id` (set by the Supabase signup trigger) is sent to Job Posting as `x-company-id`; a recruiter token without it gets `403 NO_COMPANY`.
 3. forwards the request and returns the service's status and body unchanged.
 
 ## Services and routes
@@ -34,7 +35,7 @@ responses are the proto messages as JSON (snake_case, enum names such as `JOB_ST
 | Recruiter route | gRPC |
 | --- | --- |
 | `GET /api/jobs/mine?status=JOB_STATUS_DRAFT&query=` | `ListJobs` for the recruiter's company |
-| `GET /api/jobs/mine/company` | – (returns `{ "companyId": … }`) |
+| `GET /api/jobs/mine/company` | – (returns `{ "companyId": …, "companyName": … }` from the token) |
 | `POST /api/jobs/mine` (body: `JobInput`) | `CreateJob` |
 | `GET / PUT / DELETE /api/jobs/mine/:jobId` | `GetJob` / `UpdateJob` / `DeleteJob` |
 | `POST /api/jobs/mine/:jobId/publish` · `close` · `reopen` | `PublishJob` · `CloseJob` · `ReopenJob` |
@@ -73,7 +74,6 @@ Job Posting's own `/health`, so start Job Discovery first or change Job Posting'
 | `JOB_POSTING_GRPC_URL` | yes | – | gRPC `host:port`, e.g. `localhost:50052` |
 | `SUPABASE_URL` | yes | – | Supabase project URL (Auth project) |
 | `SUPABASE_PUBLISHABLE_KEY` | yes | – | Supabase publishable key (never the service role key) |
-| `DEV_RECRUITER_COMPANY_ID` | no | `co-brightline` | Mock company sent to Job Posting for recruiter calls |
 | `NODE_ENV` | no | `development` | `test` silences logs |
 
 ## Errors
@@ -84,6 +84,7 @@ Every gateway error uses the services' shape: `{ "error": { "code": "...", "mess
 | --- | --- | --- |
 | 401 | `MISSING_TOKEN` / `INVALID_TOKEN` / `TOKEN_EXPIRED` | no, bad or expired access token |
 | 403 | `FORBIDDEN` | a non-recruiter calls `/api/jobs/mine/*` |
+| 403 | `NO_COMPANY` | a recruiter token has no `company_id` (sign in again after running the Supabase SQL) |
 | 404 | `ROUTE_NOT_FOUND` | unknown gateway route |
 | 503 | `SERVICE_UNAVAILABLE` | a service is down or timed out |
 

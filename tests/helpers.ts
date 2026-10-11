@@ -29,10 +29,15 @@ export const errorOf = async (res: Response) => ((await res.json()) as { error: 
 export const SEEKER = '11111111-1111-4111-8111-111111111111';
 export const RECRUITER = '22222222-2222-4222-8222-222222222222';
 
-/** Accepts "seeker-token" and "recruiter-token"; everything else is invalid. */
+export const COMPANY_ID = 'co-acme-corp-7f3a9c';
+
+/** Accepts "seeker-token", "recruiter-token" and "recruiter-no-company-token"; everything else is invalid. */
 export const fakeVerifier: ClaimsVerifier = async (token) => {
   if (token === 'seeker-token') return { sub: SEEKER, app_metadata: { role: 'seeker' } };
-  if (token === 'recruiter-token') return { sub: RECRUITER, app_metadata: { role: 'recruiter' } };
+  if (token === 'recruiter-token') {
+    return { sub: RECRUITER, app_metadata: { role: 'recruiter', company_id: COMPANY_ID, company_name: 'Acme Corp' } };
+  }
+  if (token === 'recruiter-no-company-token') return { sub: RECRUITER, app_metadata: { role: 'recruiter' } };
   return null;
 };
 

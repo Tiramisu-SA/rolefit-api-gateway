@@ -1,6 +1,6 @@
 import express, { Router, type Request } from 'express';
 import type { JobPostingCaller, RecruiterCaller } from '../grpc/job-posting.client';
-import { requireRecruiter } from '../middleware/auth.middleware';
+import { requireCompany, requireRecruiter } from '../middleware/auth.middleware';
 
 const LIST_LIMIT = 100;
 // Job Posting accepts templates up to 2 MB; the extra room lets it answer with its own message.
@@ -22,19 +22,19 @@ function decodeFileName(header: string | undefined): string {
  * Request bodies and responses are proto-shaped (snake_case, prefixed enums)
  * and passed through unchanged: the service does all validation and rules.
  */
-export function createJobRoutes(jobPosting: JobPostingCaller, recruiterCompanyId: string): Router {
+export function createJobRoutes(jobPosting: JobPostingCaller): Router {
   const router = Router();
   const json = express.json({ limit: '1mb' });
   const raw = express.raw({ type: () => true, limit: MAX_TEMPLATE_BYTES });
-  const recruiter = (req: Request): RecruiterCaller => ({ userId: req.user!.id, companyId: recruiterCompanyId });
+  const recruiter = (req: Request): RecruiterCaller => ({ userId: req.user!.id, companyId: req.user!.companyId! });
 
   // --- recruiter: own company's jobs (mounted before /:jobId so "mine" is never a job id) ---
   const mine = Router();
-  mine.use(requireRecruiter);
+  mine.use(requireRecruiter, requireCompany);
 
   mine.get('/', async (req, res) => {
     const request = {
-      company_id: recruiterCompanyId,
+      company_id: req.user!.companyId!,
       status: text(req.query.status) || 'JOB_STATUS_UNSPECIFIED',
       query: text(req.query.query),
       limit: LIST_LIMIT,
@@ -42,8 +42,9 @@ export function createJobRoutes(jobPosting: JobPostingCaller, recruiterCompanyId
     res.json(await jobPosting('ListJobs', request, recruiter(req)));
   });
 
-  mine.get('/company', (_req, res) => {
-    res.json({ companyId: recruiterCompanyId });
+  mine.get('/company', (req, res) => {
+    const { companyId, companyName } = req.user!;
+    res.json(companyName ? { companyId, companyName } : { companyId });
   });
 
   mine.post('/', json, async (req, res) => {

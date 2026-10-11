@@ -5,7 +5,7 @@ import type { JobMessage, JobPostingCaller, RecruiterCaller } from '../src/grpc/
 import { errorHandler } from '../src/middleware/error.middleware';
 import { createJobRoutes } from '../src/routes/job.routes';
 import { AppError } from '../src/utils/errors';
-import { errorOf, listen, RECRUITER, SEEKER } from './helpers';
+import { COMPANY_ID, errorOf, listen, RECRUITER, SEEKER } from './helpers';
 
 interface Call {
   method: string;
@@ -22,14 +22,21 @@ function recording(response: JobMessage = { job: { id: 'job_1' } }) {
   return { call, calls };
 }
 
+type Who = 'seeker' | 'recruiter' | 'recruiter-no-company';
+
 /** Mounts the router behind a stand-in for `authenticate`. */
-async function withJobs(role: 'seeker' | 'recruiter', jobPosting: JobPostingCaller, fn: (base: string) => Promise<void>) {
+async function withJobs(who: Who, jobPosting: JobPostingCaller, fn: (base: string) => Promise<void>) {
   const app = express();
   app.use((req, _res, next) => {
-    req.user = { id: role === 'recruiter' ? RECRUITER : SEEKER, role };
+    req.user =
+      who === 'seeker'
+        ? { id: SEEKER, role: 'seeker' }
+        : who === 'recruiter'
+          ? { id: RECRUITER, role: 'recruiter', companyId: COMPANY_ID, companyName: 'Acme Corp' }
+          : { id: RECRUITER, role: 'recruiter' };
     next();
   });
-  app.use('/api/jobs', createJobRoutes(jobPosting, 'co-test'));
+  app.use('/api/jobs', createJobRoutes(jobPosting));
   app.use(errorHandler);
   const { base, close } = await listen(app);
   try {
@@ -39,7 +46,7 @@ async function withJobs(role: 'seeker' | 'recruiter', jobPosting: JobPostingCall
   }
 }
 
-const recruiterCaller = { userId: RECRUITER, companyId: 'co-test' };
+const recruiterCaller = { userId: RECRUITER, companyId: COMPANY_ID };
 
 test('GET /api/jobs lists OPEN jobs without identity and returns the message unchanged', async () => {
   const { call, calls } = recording({ jobs: [{ id: 'job_1' }], total: 1 });
@@ -76,15 +83,15 @@ test('GET /api/jobs/mine lists the company jobs with recruiter identity; status 
     await fetch(`${base}/api/jobs/mine`);
   });
   assert.deepEqual(calls, [
-    { method: 'ListJobs', request: { company_id: 'co-test', status: 'JOB_STATUS_DRAFT', query: 'dev', limit: 100 }, caller: recruiterCaller },
-    { method: 'ListJobs', request: { company_id: 'co-test', status: 'JOB_STATUS_UNSPECIFIED', query: '', limit: 100 }, caller: recruiterCaller },
+    { method: 'ListJobs', request: { company_id: COMPANY_ID, status: 'JOB_STATUS_DRAFT', query: 'dev', limit: 100 }, caller: recruiterCaller },
+    { method: 'ListJobs', request: { company_id: COMPANY_ID, status: 'JOB_STATUS_UNSPECIFIED', query: '', limit: 100 }, caller: recruiterCaller },
   ]);
 });
 
-test('GET /api/jobs/mine/company returns the configured company without an RPC', async () => {
+test('GET /api/jobs/mine/company returns the company from the token without an RPC', async () => {
   const { call, calls } = recording();
   await withJobs('recruiter', call, async (base) => {
-    assert.deepEqual(await (await fetch(`${base}/api/jobs/mine/company`)).json(), { companyId: 'co-test' });
+    assert.deepEqual(await (await fetch(`${base}/api/jobs/mine/company`)).json(), { companyId: COMPANY_ID, companyName: 'Acme Corp' });
   });
   assert.equal(calls.length, 0);
 });
@@ -115,7 +122,7 @@ test('recruiter writes map to the matching RPCs with the JSON body as `job`', as
       ['DeleteJob', { job_id: 'job_1' }],
     ],
   );
-  assert.ok(calls.every((c) => c.caller?.userId === RECRUITER && c.caller.companyId === 'co-test'));
+  assert.ok(calls.every((c) => c.caller?.userId === RECRUITER && c.caller.companyId === COMPANY_ID));
 });
 
 test('resume template: raw upload with decoded file name, read without content, delete', async () => {
@@ -158,4 +165,14 @@ test('malformed JSON body is 400 MALFORMED_JSON', async () => {
     assert.equal(res.status, 400);
     assert.equal((await errorOf(res)).code, 'MALFORMED_JSON');
   });
+});
+
+test('a recruiter without a company gets 403 NO_COMPANY and no RPC is made', async () => {
+  const { call, calls } = recording();
+  await withJobs('recruiter-no-company', call, async (base) => {
+    const res = await fetch(`${base}/api/jobs/mine`);
+    assert.equal(res.status, 403);
+    assert.equal((await errorOf(res)).code, 'NO_COMPANY');
+  });
+  assert.equal(calls.length, 0);
 });

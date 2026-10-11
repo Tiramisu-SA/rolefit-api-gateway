@@ -1,13 +1,17 @@
 import type { NextFunction, Request, Response } from 'express';
 import type { AuthClaims, ClaimsVerifier } from '../auth/supabase';
 import { logger } from '../utils/logger';
-import { forbidden, invalidToken, missingToken, tokenExpired } from '../utils/errors';
+import { forbidden, invalidToken, missingToken, noCompany, tokenExpired } from '../utils/errors';
 
 export interface GatewayUser {
   /** Supabase user id (JWT `sub`). */
   id: string;
   /** `app_metadata.role`: "seeker" or "recruiter". Only the Supabase server can write it. */
   role?: string;
+  /** `app_metadata.company_id`, set once at recruiter signup, e.g. "co-acme-corp-7f3a9c". */
+  companyId?: string;
+  /** `app_metadata.company_name`, the company name typed at signup. */
+  companyName?: string;
 }
 
 declare global {
@@ -62,8 +66,13 @@ export function authenticate(verifyClaims: ClaimsVerifier) {
       return;
     }
 
-    const role = claims.app_metadata?.role;
-    req.user = { id: claims.sub, role: typeof role === 'string' ? role : undefined };
+    const meta = claims.app_metadata ?? {};
+    const text = (value: unknown) => (typeof value === 'string' && value !== '' ? value : undefined);
+    req.user = { id: claims.sub, role: text(meta.role) };
+    const companyId = text(meta.company_id);
+    const companyName = text(meta.company_name);
+    if (companyId) req.user.companyId = companyId;
+    if (companyName) req.user.companyName = companyName;
     delete req.headers['x-company-id'];
     req.headers['x-user-id'] = claims.sub;
     next();
@@ -74,6 +83,15 @@ export function authenticate(verifyClaims: ClaimsVerifier) {
 export function requireRecruiter(req: Request, _res: Response, next: NextFunction): void {
   if (req.user?.role !== 'recruiter') {
     next(forbidden('This endpoint is for recruiter accounts only'));
+    return;
+  }
+  next();
+}
+
+/** Lets only recruiters whose token carries a company through (after `requireRecruiter`). */
+export function requireCompany(req: Request, _res: Response, next: NextFunction): void {
+  if (!req.user?.companyId) {
+    next(noCompany());
     return;
   }
   next();

@@ -17,8 +17,6 @@ export interface AppDependencies {
   jobDiscoveryUrl: string;
   /** The web frontend origin allowed by CORS, e.g. http://localhost:3000. */
   frontendUrl: string;
-  /** Mock company for recruiter calls (the JWT has no company yet). */
-  recruiterCompanyId: string;
 }
 
 /**
@@ -38,7 +36,7 @@ export function createApp(deps: AppDependencies): Express {
   app.use('/api', authenticate(deps.verifyClaims));
   app.use('/api/candidates', createServiceProxy(deps.candidateProfileUrl, 'candidate profile'));
   app.use('/api/discovery', createServiceProxy(deps.jobDiscoveryUrl, 'job discovery'));
-  app.use('/api/jobs', createJobRoutes(deps.jobPosting, deps.recruiterCompanyId));
+  app.use('/api/jobs', createJobRoutes(deps.jobPosting));
 
   app.use(notFoundHandler);
   app.use(errorHandler);

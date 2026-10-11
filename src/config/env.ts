@@ -19,8 +19,6 @@ export interface GatewayConfig {
   supabaseUrl: string;
   /** Supabase publishable key; never a service role key. */
   supabasePublishableKey: string;
-  /** Mock company sent to Job Posting as x-company-id for recruiter calls. */
-  recruiterCompanyId: string;
 }
 
 /** Reads and validates the environment. Reports every problem at once. */
@@ -57,7 +55,6 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): GatewayConf
     jobPostingGrpcUrl: required('JOB_POSTING_GRPC_URL'),
     supabaseUrl: httpUrl('SUPABASE_URL'),
     supabasePublishableKey: required('SUPABASE_PUBLISHABLE_KEY'),
-    recruiterCompanyId: read('DEV_RECRUITER_COMPANY_ID') || 'co-brightline',
   };
 
   if (errors.length > 0) {

@@ -28,3 +28,6 @@ export const forbidden = (message = 'You do not have access to this resource') =
 /** A downstream service is down or timed out. */
 export const serviceUnavailable = (service: string) =>
   new AppError(`The ${service} service is unavailable. Please try again.`, 503, 'SERVICE_UNAVAILABLE');
+
+export const noCompany = () =>
+  new AppError('This recruiter account has no company yet. Sign out and sign in again.', 403, 'NO_COMPANY');

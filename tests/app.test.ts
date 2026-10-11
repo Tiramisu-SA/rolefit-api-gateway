@@ -48,7 +48,6 @@ async function withGateway(fn: (base: string) => Promise<void>, overrides: Parti
       candidateProfileUrl: profile.base,
       jobDiscoveryUrl: discovery.base,
       frontendUrl: ORIGIN,
-      recruiterCompanyId: 'co-test',
       ...overrides,
     }),
   );

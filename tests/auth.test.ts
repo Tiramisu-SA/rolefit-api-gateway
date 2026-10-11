@@ -1,9 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import express from 'express';
-import { authenticate, requireRecruiter } from '../src/middleware/auth.middleware';
+import { authenticate, requireCompany, requireRecruiter } from '../src/middleware/auth.middleware';
 import { errorHandler } from '../src/middleware/error.middleware';
-import { errorOf, fakeVerifier, jwtWithExp, listen, SEEKER } from './helpers';
+import { COMPANY_ID, errorOf, fakeVerifier, jwtWithExp, listen, RECRUITER as RECRUITER_ID, SEEKER } from './helpers';
 
 function app() {
   const a = express();
@@ -17,6 +17,9 @@ function app() {
     });
   });
   a.get('/recruiter-only', requireRecruiter, (_req, res) => {
+    res.json({ ok: true });
+  });
+  a.get('/recruiter-company', requireRecruiter, requireCompany, (_req, res) => {
     res.json({ ok: true });
   });
   a.use(errorHandler);
@@ -104,4 +107,18 @@ test('requireRecruiter allows recruiters and refuses seekers with 403 FORBIDDEN'
   const refused = await call('/recruiter-only', { Authorization: 'Bearer seeker-token' });
   assert.equal(refused.status, 403);
   assert.equal((refused.body.error as { code: string }).code, 'FORBIDDEN');
+});
+
+test('company claims from app_metadata are copied into req.user', async () => {
+  const { status, body } = await call('/echo', { Authorization: 'Bearer recruiter-token' });
+  assert.equal(status, 200);
+  assert.deepEqual(body.user, { id: RECRUITER_ID, role: 'recruiter', companyId: COMPANY_ID, companyName: 'Acme Corp' });
+});
+
+test('requireCompany refuses a recruiter token without company_id with 403 NO_COMPANY', async () => {
+  const { status, body } = await call('/recruiter-company', { Authorization: 'Bearer recruiter-no-company-token' });
+  assert.equal(status, 403);
+  assert.deepEqual(body.error, { code: 'NO_COMPANY', message: 'This recruiter account has no company yet. Sign out and sign in again.' });
+  const ok = await call('/recruiter-company', { Authorization: 'Bearer recruiter-token' });
+  assert.equal(ok.status, 200);
 });
