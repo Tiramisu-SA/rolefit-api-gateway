@@ -158,9 +158,9 @@ test('recruiters cannot submit applications', async () => {
 
 test('unsupported routes are a gateway 404 and are not forwarded', async () => {
   await withGateway(async (base) => {
-    const delete_app = await fetch(`${base}/api/applications/app_1`, { method: 'DELETE', headers: as('seeker-token') });
-    assert.equal(delete_app.status, 404);
-    assert.equal((await errorOf(delete_app)).code, 'ROUTE_NOT_FOUND');
+    const deleteApp = await fetch(`${base}/api/applications/app_1`, { method: 'DELETE', headers: as('seeker-token') });
+    assert.equal(deleteApp.status, 404);
+    assert.equal((await errorOf(deleteApp)).code, 'ROUTE_NOT_FOUND');
     const deep = await fetch(`${base}/api/applications/app_1/history`, { headers: as('seeker-token') });
     assert.equal((await errorOf(deep)).code, 'ROUTE_NOT_FOUND');
   });
