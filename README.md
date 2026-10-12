@@ -10,6 +10,7 @@ Frontend ──Authorization: Bearer <Supabase JWT>──▶ API Gateway (:8080)
                                                      ├─ HTTP ─▶ Candidate Profile Service (:3001)
                                                      ├─ HTTP ─▶ Job Discovery Service     (:3002)
                                                      ├─ HTTP ─▶ Application Service       (:3004)
+                                                     ├─ HTTP ─▶ Resume Preparation Service (:3006)
                                                      └─ gRPC ─▶ Job Posting Service       (:50052)
 ```
 
@@ -29,6 +30,7 @@ For every `/api/*` request the gateway:
 | `GET /health` | gateway (no auth) | – |
 | `/api/candidates/*` | Candidate Profile Service | `/api/*`, e.g. `/api/candidates/profiles/me` → `/api/profiles/me` |
 | `/api/discovery/*` | Job Discovery Service | `/api/*`, e.g. `/api/discovery/recommendations` → `/api/recommendations` |
+| `/api/resumes/*` (seekers) | Resume Preparation Service | `/api/*`, e.g. `/api/resumes/drafts/:jobId/generate` → `/api/drafts/:jobId/generate` |
 | `POST /api/applications` (seekers) | Application Service | same path, body `{ jobId, coverLetter? }` |
 | `GET /api/applications/mine` (seekers) | Application Service | same path |
 | `GET /api/applications?jobId=` (recruiters) | Application Service | same path |
@@ -69,6 +71,7 @@ The gateway listens on `http://localhost:8080`. Start the services first:
 | Job Posting | `npm run dev` in `rolefit-job-posting-service` (`npm run seed` once for demo jobs) | gRPC 50052, HTTP health `HTTP_PORT` |
 | Job Discovery | `npm run dev` in `rolefit-job-discovery-service` | REST 3002 |
 | Application | per its own repo (owner: Pun) | REST 3004 |
+| Resume Preparation | `npm run dev` in `rolefit-resume-preparation-service` | REST 3006, gRPC 50053 |
 | Frontend | `npm run dev` in `rolefit-frontend` (`NEXT_PUBLIC_API_GATEWAY_URL=http://localhost:8080`) | 3000 |
 
 Ports must not clash: Job Posting's health port (`HTTP_PORT`, default 3002) collides with Job Discovery's
@@ -84,6 +87,7 @@ for Job Posting and `PORT=3002` for Job Discovery.
 | `CANDIDATE_PROFILE_SERVICE_URL` | yes | – | e.g. `http://localhost:3001` |
 | `JOB_DISCOVERY_SERVICE_URL` | yes | – | e.g. `http://localhost:3002` |
 | `APPLICATION_SERVICE_URL` | yes | – | e.g. `http://localhost:3004` |
+| `RESUME_PREPARATION_SERVICE_URL` | yes | – | e.g. `http://localhost:3006` |
 | `JOB_POSTING_GRPC_URL` | yes | – | gRPC `host:port`, e.g. `localhost:50052` |
 | `SUPABASE_URL` | yes | – | Supabase project URL (Auth project) |
 | `SUPABASE_PUBLISHABLE_KEY` | yes | – | Supabase publishable key (never the service role key) |
@@ -110,7 +114,7 @@ are mapped: `INVALID_ARGUMENT` → 400 `VALIDATION_ERROR` (with `details`), `NOT
 
 ## Security note
 
-The gateway is the security boundary only if the services' ports (3001, 3002, 3004, 50051/50052) are not
+The gateway is the security boundary only if the services' ports (3001, 3002, 3004, 3006, 50051/50052) are not
 publicly reachable, because Job Discovery, the Application Service (and Candidate Profile with
 `AUTH_MODE=mock`) trust the identity headers the gateway sets.
 Outside local development, run Candidate Profile with `AUTH_MODE=jwt`.

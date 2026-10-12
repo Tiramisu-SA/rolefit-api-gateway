@@ -12,6 +12,7 @@ const app = createApp({
   candidateProfileUrl: config.candidateProfileUrl,
   jobDiscoveryUrl: config.jobDiscoveryUrl,
   applicationServiceUrl: config.applicationServiceUrl,
+  resumePreparationUrl: config.resumePreparationUrl,
   frontendUrl: config.frontendUrl,
 });
 
@@ -20,5 +21,6 @@ app.listen(config.port, () => {
   logger.info(`  /api/candidates/* → ${config.candidateProfileUrl}/api/*`);
   logger.info(`  /api/discovery/*  → ${config.jobDiscoveryUrl}/api/*`);
   logger.info(`  /api/applications/* → ${config.applicationServiceUrl}/api/applications/*`);
+  logger.info(`  /api/resumes/*      → ${config.resumePreparationUrl}/api/*`);
   logger.info(`  /api/jobs/*       → gRPC ${config.jobPostingGrpcUrl}`);
 });

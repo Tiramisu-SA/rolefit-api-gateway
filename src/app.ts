@@ -1,7 +1,7 @@
 import express, { type Express } from 'express';
 import type { ClaimsVerifier } from './auth/supabase';
 import type { JobPostingCaller } from './grpc/job-posting.client';
-import { authenticate } from './middleware/auth.middleware';
+import { authenticate, requireSeeker } from './middleware/auth.middleware';
 import { cors } from './middleware/cors.middleware';
 import { errorHandler, notFoundHandler } from './middleware/error.middleware';
 import { requestLogger } from './middleware/logger.middleware';
@@ -18,6 +18,8 @@ export interface AppDependencies {
   jobDiscoveryUrl: string;
   /** Application Service REST base URL (still in development). */
   applicationServiceUrl: string;
+  /** Resume Preparation Service REST base URL. */
+  resumePreparationUrl: string;
   /** The web frontend origin allowed by CORS, e.g. http://localhost:3000. */
   frontendUrl: string;
 }
@@ -41,6 +43,7 @@ export function createApp(deps: AppDependencies): Express {
   app.use('/api/discovery', createServiceProxy(deps.jobDiscoveryUrl, 'job discovery'));
   app.use('/api/jobs', createJobRoutes(deps.jobPosting));
   app.use('/api/applications', createApplicationRoutes(deps.applicationServiceUrl));
+  app.use('/api/resumes', requireSeeker, createServiceProxy(deps.resumePreparationUrl, 'resume preparation'));
 
   app.use(notFoundHandler);
   app.use(errorHandler);
