@@ -129,11 +129,38 @@ test('wrong roles are refused at the gateway', async () => {
   });
 });
 
+test('seeker submit is forwarded to POST /api/applications with body and verified identity', async () => {
+  await withGateway(async (base) => {
+    const res = await fetch(`${base}/api/applications`, {
+      method: 'POST',
+      headers: as('seeker-token', { 'Content-Type': 'application/json', ...forged }),
+      body: JSON.stringify({ jobId: 'job_1', coverLetter: 'Hello' }),
+    });
+    assert.equal(res.status, 201);
+    const echo = (await res.json()) as Echo;
+    assert.equal(echo.method, 'POST');
+    assert.equal(echo.url, '/api/applications');
+    assert.deepEqual(JSON.parse(echo.body!), { jobId: 'job_1', coverLetter: 'Hello' });
+    assert.equal(echo.headers['x-user-id'], SEEKER);
+    assert.equal(echo.headers['x-user-role'], 'seeker');
+    assert.equal(echo.headers['x-company-id'], undefined);
+    assert.equal(echo.headers.authorization, 'Bearer seeker-token');
+  });
+});
+
+test('recruiters cannot submit applications', async () => {
+  await withGateway(async (base) => {
+    const res = await fetch(`${base}/api/applications`, { method: 'POST', headers: as('recruiter-token', { 'Content-Type': 'application/json' }), body: '{"jobId":"job_1"}' });
+    assert.equal(res.status, 403);
+    assert.equal((await errorOf(res)).code, 'FORBIDDEN');
+  });
+});
+
 test('unsupported routes are a gateway 404 and are not forwarded', async () => {
   await withGateway(async (base) => {
-    const submit = await fetch(`${base}/api/applications`, { method: 'POST', headers: as('seeker-token') });
-    assert.equal(submit.status, 404);
-    assert.equal((await errorOf(submit)).code, 'ROUTE_NOT_FOUND');
+    const delete_app = await fetch(`${base}/api/applications/app_1`, { method: 'DELETE', headers: as('seeker-token') });
+    assert.equal(delete_app.status, 404);
+    assert.equal((await errorOf(delete_app)).code, 'ROUTE_NOT_FOUND');
     const deep = await fetch(`${base}/api/applications/app_1/history`, { headers: as('seeker-token') });
     assert.equal((await errorOf(deep)).code, 'ROUTE_NOT_FOUND');
   });

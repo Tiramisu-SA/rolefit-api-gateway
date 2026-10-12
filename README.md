@@ -9,7 +9,7 @@ Supabase access token, then routes the request to the right microservice. It hol
 Frontend ──Authorization: Bearer <Supabase JWT>──▶ API Gateway (:8080)
                                                      ├─ HTTP ─▶ Candidate Profile Service (:3001)
                                                      ├─ HTTP ─▶ Job Discovery Service     (:3002)
-                                                     ├─ HTTP ─▶ Application Service       (:3004, in development)
+                                                     ├─ HTTP ─▶ Application Service       (:3004)
                                                      └─ gRPC ─▶ Job Posting Service       (:50052)
 ```
 
@@ -29,6 +29,7 @@ For every `/api/*` request the gateway:
 | `GET /health` | gateway (no auth) | – |
 | `/api/candidates/*` | Candidate Profile Service | `/api/*`, e.g. `/api/candidates/profiles/me` → `/api/profiles/me` |
 | `/api/discovery/*` | Job Discovery Service | `/api/*`, e.g. `/api/discovery/recommendations` → `/api/recommendations` |
+| `POST /api/applications` (seekers) | Application Service | same path, body `{ jobId, coverLetter? }` |
 | `GET /api/applications/mine` (seekers) | Application Service | same path |
 | `GET /api/applications?jobId=` (recruiters) | Application Service | same path |
 | `GET /api/applications/:applicationId` (seeker or recruiter) | Application Service | same path |
@@ -36,7 +37,7 @@ For every `/api/*` request the gateway:
 | `GET /api/jobs`, `GET /api/jobs/:jobId` | Job Posting Service | gRPC `ListJobs` (open jobs) / `GetJob` |
 | `/api/jobs/mine/*` (recruiters only) | Job Posting Service | gRPC `ListJobs`, `CreateJob`, `GetJob`, `UpdateJob`, `DeleteJob`, `PublishJob`, `CloseJob`, `ReopenJob`, `Get/Attach/DeleteResumeTemplate` |
 
-Other paths under `/api/applications` (for example submitting an application) are a gateway `404`.
+Other paths under `/api/applications` are a gateway `404`.
 
 The Job Posting Service only speaks gRPC, so the gateway translates these REST calls to gRPC. Bodies and
 responses are the proto messages as JSON (snake_case, enum names such as `JOB_STATUS_OPEN`), unchanged.
@@ -67,7 +68,7 @@ The gateway listens on `http://localhost:8080`. Start the services first:
 | Candidate Profile | `npm run dev` in `rolefit-candidate-profile-service` | REST 3001, gRPC 50051 |
 | Job Posting | `npm run dev` in `rolefit-job-posting-service` (`npm run seed` once for demo jobs) | gRPC 50052, HTTP health `HTTP_PORT` |
 | Job Discovery | `npm run dev` in `rolefit-job-discovery-service` | REST 3002 |
-| Application | per its own repo (owner: Pun) | REST 3004 (in development) |
+| Application | per its own repo (owner: Pun) | REST 3004 |
 | Frontend | `npm run dev` in `rolefit-frontend` (`NEXT_PUBLIC_API_GATEWAY_URL=http://localhost:8080`) | 3000 |
 
 Ports must not clash: Job Posting's health port (`HTTP_PORT`, default 3002) collides with Job Discovery's
