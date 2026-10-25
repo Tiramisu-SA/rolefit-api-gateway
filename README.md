@@ -53,7 +53,58 @@ responses are the proto messages as JSON (snake_case, enum names such as `JOB_ST
 | `POST /api/jobs/mine/:jobId/publish` · `close` · `reopen` | `PublishJob` · `CloseJob` · `ReopenJob` |
 | `GET / PUT / DELETE /api/jobs/mine/:jobId/resume-template` | `GetResumeTemplate` / `AttachResumeTemplate` (raw body, `Content-Type`, `X-File-Name`) / `DeleteResumeTemplate` |
 
-## Local setup
+## Run the whole backend with Docker Compose
+
+[`deploy/docker-compose.yml`](deploy/docker-compose.yml) starts the gateway, all six services and their
+infrastructure (PostgreSQL, MongoDB, RabbitMQ, Mailpit) with one command. It needs Docker and the service repos
+cloned next to this one:
+
+```
+RoleFit/
+├── rolefit-api-gateway/          ← this repo (deploy/docker-compose.yml)
+├── rolefit-candidate-profile-service/
+├── rolefit-job-posting-service/   (dev branch)
+├── rolefit-job-discovery-service/
+├── rolefit-resume-preparation-service/
+├── rolefit-application-service/
+└── rolefit-notification-service/
+```
+
+```bash
+cd deploy
+cp .env.example .env        # fill in the Supabase URL/key and the two cloud database URLs
+docker compose up -d --build
+docker compose ps           # every service should become "healthy"
+```
+
+Then run the frontend as usual (`npm run dev` in `rolefit-frontend`, gateway URL `http://localhost:8080`).
+Stop everything with `docker compose down` (add `-v` to also delete the local databases).
+
+**Service discovery.** All containers join one Docker network, and Docker's built-in DNS resolves a service name to
+the container's current address. Services therefore call each other by name, not by a fixed host and port, for
+example `http://candidate-profile:3001` or `job-posting:50052`. Moving, restarting or scaling a service
+(`docker compose up -d --scale job-discovery=2`) needs no configuration change in its callers. Compose also starts
+the services in dependency order and waits for each one's health check before starting the services that call it.
+
+| Service name (DNS) | Port(s) inside the network | Reachable from the host |
+| --- | --- | --- |
+| `api-gateway` | 8080 | `http://localhost:8080` |
+| `candidate-profile` | REST 3001, gRPC 50051 | no |
+| `job-posting` | gRPC 50052 | no |
+| `job-discovery` | REST 3002 | no |
+| `resume-preparation` | REST 3006, gRPC 50053 | no |
+| `application` | REST 3004 | no |
+| `notification` | health 3005 | no |
+| `postgres`, `mongo`, `rabbitmq`, `mailpit` | 5432, 27017, 5672, 1025 | RabbitMQ UI `:15672`, Mailpit inbox `:8025` |
+
+Only the gateway is published, so the services' identity headers can't be forged from outside (see
+[Security note](#security-note)). Supabase (Auth and the Candidate Profile database) and MongoDB Atlas (Job Posting)
+stay in the cloud; their URLs and keys come from `deploy/.env`, which is gitignored.
+
+If a build stops with `failed to receive status ... EOF`, Docker ran out of memory or disk space: free some space
+and build the images one at a time (`docker compose build api-gateway`, then the next).
+
+## Local setup (without Docker)
 
 Requires Node 20+ and the services running locally. Routes to a service that isn't running return `503`.
 

@@ -1,0 +1,200 @@
+# Runs the whole RoleFit backend: the API Gateway, the six services and their
+# infrastructure. Usage (from this folder):
+#
+#   cp .env.example .env        # then fill in the secrets
+#   docker compose up -d --build
+#
+# The service repos must be cloned next to this repo (../../rolefit-*).
+#
+# Service discovery: every container joins the same Docker network, and Docker's
+# built-in DNS resolves a service name (e.g. `candidate-profile`) to the current
+# address of that container. Services therefore call each other by name instead
+# of a fixed host and port, and a service can be restarted, moved or scaled
+# without changing anyone else's configuration.
+#
+# Only the gateway (8080) and the local dashboards are published on the host.
+# The services themselves are reachable only inside the network, which is what
+# makes the gateway's verified identity headers safe to trust.
+
+name: rolefit
+
+x-healthcheck: &healthcheck
+  interval: 5s
+  timeout: 5s
+  retries: 30
+
+services:
+  # ---------- Infrastructure ----------
+
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_PASSWORD: postgres-local
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      # Creates the separate application and notification databases and users.
+      - ../../rolefit-application-service/infra/init.sql:/docker-entrypoint-initdb.d/001-services.sql:ro
+    healthcheck:
+      <<: *healthcheck
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+
+  mongo:
+    image: mongo:7
+    volumes:
+      - mongodata:/data/db
+    healthcheck:
+      <<: *healthcheck
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+
+  rabbitmq:
+    image: rabbitmq:4.2-management-alpine
+    environment:
+      RABBITMQ_DEFAULT_USER: rolefit
+      RABBITMQ_DEFAULT_PASS: rolefit-local
+    ports:
+      - "127.0.0.1:15672:15672" # management UI
+    volumes:
+      - rabbitdata:/var/lib/rabbitmq
+    healthcheck:
+      <<: *healthcheck
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+
+  mailpit:
+    image: axllent/mailpit:v1.27
+    environment:
+      MP_DATABASE: /data/mailpit.db
+    ports:
+      - "127.0.0.1:8025:8025" # inbox UI
+    volumes:
+      - maildata:/data
+
+  # ---------- Services ----------
+
+  candidate-profile:
+    build: ../../rolefit-candidate-profile-service
+    environment:
+      REST_PORT: 3001
+      GRPC_PORT: 50051
+      DATABASE_URL: ${CANDIDATE_PROFILE_DATABASE_URL:?set CANDIDATE_PROFILE_DATABASE_URL in .env}
+      DATABASE_SSL: "true"
+      DATABASE_SSL_CA_PATH: certs/supabase-ca.crt
+      SUPABASE_URL: ${SUPABASE_URL:?set SUPABASE_URL in .env}
+      SUPABASE_PUBLISHABLE_KEY: ${SUPABASE_PUBLISHABLE_KEY:?set SUPABASE_PUBLISHABLE_KEY in .env}
+    healthcheck:
+      <<: *healthcheck
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3001/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+
+  job-posting:
+    build: ../../rolefit-job-posting-service
+    environment:
+      HTTP_PORT: 3003
+      GRPC_HOST: 0.0.0.0
+      GRPC_PORT: 50052
+      MONGODB_URI: ${JOB_POSTING_MONGODB_URI:?set JOB_POSTING_MONGODB_URI in .env}
+      AI_PROVIDER: none
+    healthcheck:
+      <<: *healthcheck
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3003/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+
+  job-discovery:
+    build: ../../rolefit-job-discovery-service
+    environment:
+      PORT: 3002
+      CANDIDATE_PROFILE_GRPC_URL: candidate-profile:50051
+      JOB_POSTING_GRPC_URL: job-posting:50052
+    depends_on:
+      candidate-profile: { condition: service_healthy }
+      job-posting: { condition: service_healthy }
+    healthcheck:
+      <<: *healthcheck
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3002/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+
+  resume-preparation:
+    build: ../../rolefit-resume-preparation-service
+    environment:
+      PORT: 3006
+      GRPC_HOST: 0.0.0.0
+      GRPC_PORT: 50053
+      MONGODB_URI: mongodb://mongo:27017/rolefit_resume_preparation
+      CANDIDATE_PROFILE_GRPC_URL: candidate-profile:50051
+      JOB_POSTING_GRPC_URL: job-posting:50052
+      CORS_ORIGIN: http://localhost:3000
+      AUTH_MODE: jwt
+      SUPABASE_URL: ${SUPABASE_URL}
+      SUPABASE_PUBLISHABLE_KEY: ${SUPABASE_PUBLISHABLE_KEY}
+      AI_PROVIDER: rule-based
+    depends_on:
+      mongo: { condition: service_healthy }
+      candidate-profile: { condition: service_healthy }
+      job-posting: { condition: service_healthy }
+    healthcheck:
+      <<: *healthcheck
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3006/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+
+  application:
+    build: ../../rolefit-application-service
+    environment:
+      PORT: 3004
+      DATABASE_URL: postgresql://application:application-local@postgres:5432/application
+      RABBITMQ_URL: amqp://rolefit:rolefit-local@rabbitmq:5672
+      JOB_POSTING_GRPC_URL: job-posting:50052
+      RESUME_PREPARATION_GRPC_URL: resume-preparation:50053
+      JOB_DISCOVERY_SERVICE_URL: http://job-discovery:3002
+      CANDIDATE_PROFILE_SERVICE_URL: http://candidate-profile:3001
+    depends_on:
+      postgres: { condition: service_healthy }
+      rabbitmq: { condition: service_healthy }
+      job-posting: { condition: service_healthy }
+      resume-preparation: { condition: service_healthy }
+      job-discovery: { condition: service_healthy }
+    healthcheck:
+      <<: *healthcheck
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3004/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+
+  notification:
+    build: ../../rolefit-notification-service
+    environment:
+      PORT: 3005
+      DATABASE_URL: postgresql://notification:notification-local@postgres:5432/notification
+      RABBITMQ_URL: amqp://rolefit:rolefit-local@rabbitmq:5672
+      SMTP_HOST: mailpit
+      SMTP_PORT: 1025
+    depends_on:
+      postgres: { condition: service_healthy }
+      rabbitmq: { condition: service_healthy }
+      mailpit: { condition: service_started }
+    healthcheck:
+      <<: *healthcheck
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3005/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+
+  # ---------- Single public entry point ----------
+
+  api-gateway:
+    build: ..
+    environment:
+      PORT: 8080
+      FRONTEND_URL: http://localhost:3000
+      CANDIDATE_PROFILE_SERVICE_URL: http://candidate-profile:3001
+      JOB_DISCOVERY_SERVICE_URL: http://job-discovery:3002
+      APPLICATION_SERVICE_URL: http://application:3004
+      RESUME_PREPARATION_SERVICE_URL: http://resume-preparation:3006
+      JOB_POSTING_GRPC_URL: job-posting:50052
+      SUPABASE_URL: ${SUPABASE_URL}
+      SUPABASE_PUBLISHABLE_KEY: ${SUPABASE_PUBLISHABLE_KEY}
+    ports:
+      - "127.0.0.1:8080:8080"
+    depends_on:
+      candidate-profile: { condition: service_healthy }
+      job-posting: { condition: service_healthy }
+      job-discovery: { condition: service_healthy }
+      resume-preparation: { condition: service_healthy }
+      application: { condition: service_healthy }
+    healthcheck:
+      <<: *healthcheck
+      test: ["CMD", "node", "-e", "fetch('http://localhost:8080/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+
+volumes:
+  pgdata:
+  mongodata:
+  rabbitdata:
+  maildata:
