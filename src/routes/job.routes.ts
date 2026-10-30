@@ -39,7 +39,7 @@ export function createJobRoutes(jobPosting: JobPostingCaller): Router {
       query: text(req.query.query),
       limit: LIST_LIMIT,
     };
-    res.json(await jobPosting('ListJobs', request, recruiter(req)));
+    res.json(await jobPosting('ListJobs', request, recruiter(req), req.id));
   });
 
   mine.get('/company', (req, res) => {
@@ -48,19 +48,19 @@ export function createJobRoutes(jobPosting: JobPostingCaller): Router {
   });
 
   mine.post('/', json, async (req, res) => {
-    res.json(await jobPosting('CreateJob', { job: req.body }, recruiter(req)));
+    res.json(await jobPosting('CreateJob', { job: req.body }, recruiter(req), req.id));
   });
 
   mine.get('/:jobId', async (req, res) => {
-    res.json(await jobPosting('GetJob', { job_id: req.params.jobId }, recruiter(req)));
+    res.json(await jobPosting('GetJob', { job_id: req.params.jobId }, recruiter(req), req.id));
   });
 
   mine.put('/:jobId', json, async (req, res) => {
-    res.json(await jobPosting('UpdateJob', { job_id: req.params.jobId, job: req.body }, recruiter(req)));
+    res.json(await jobPosting('UpdateJob', { job_id: req.params.jobId, job: req.body }, recruiter(req), req.id));
   });
 
   mine.delete('/:jobId', async (req, res) => {
-    await jobPosting('DeleteJob', { job_id: req.params.jobId }, recruiter(req));
+    await jobPosting('DeleteJob', { job_id: req.params.jobId }, recruiter(req), req.id);
     res.status(204).end();
   });
 
@@ -71,12 +71,12 @@ export function createJobRoutes(jobPosting: JobPostingCaller): Router {
   ] as const;
   for (const [action, method] of transitions) {
     mine.post(`/:jobId/${action}`, async (req, res) => {
-      res.json(await jobPosting(method, { job_id: req.params.jobId }, recruiter(req)));
+      res.json(await jobPosting(method, { job_id: req.params.jobId }, recruiter(req), req.id));
     });
   }
 
   mine.get('/:jobId/resume-template', async (req, res) => {
-    res.json(await jobPosting('GetResumeTemplate', { job_id: req.params.jobId, include_content: false }, recruiter(req)));
+    res.json(await jobPosting('GetResumeTemplate', { job_id: req.params.jobId, include_content: false }, recruiter(req), req.id));
   });
 
   mine.put('/:jobId/resume-template', raw, async (req, res) => {
@@ -86,11 +86,11 @@ export function createJobRoutes(jobPosting: JobPostingCaller): Router {
       content_type: req.get('content-type') ?? '',
       content: Buffer.isBuffer(req.body) ? req.body : Buffer.alloc(0),
     };
-    res.json(await jobPosting('AttachResumeTemplate', request, recruiter(req)));
+    res.json(await jobPosting('AttachResumeTemplate', request, recruiter(req), req.id));
   });
 
   mine.delete('/:jobId/resume-template', async (req, res) => {
-    await jobPosting('DeleteResumeTemplate', { job_id: req.params.jobId }, recruiter(req));
+    await jobPosting('DeleteResumeTemplate', { job_id: req.params.jobId }, recruiter(req), req.id);
     res.status(204).end();
   });
 
@@ -98,11 +98,11 @@ export function createJobRoutes(jobPosting: JobPostingCaller): Router {
 
   // --- any signed-in user: no identity is sent, so drafts are never returned ---
   router.get('/', async (req, res) => {
-    res.json(await jobPosting('ListJobs', { status: 'JOB_STATUS_OPEN', query: text(req.query.query), limit: LIST_LIMIT }));
+    res.json(await jobPosting('ListJobs', { status: 'JOB_STATUS_OPEN', query: text(req.query.query), limit: LIST_LIMIT }, undefined, req.id));
   });
 
   router.get('/:jobId', async (req, res) => {
-    res.json(await jobPosting('GetJob', { job_id: req.params.jobId }));
+    res.json(await jobPosting('GetJob', { job_id: req.params.jobId }, undefined, req.id));
   });
 
   return router;

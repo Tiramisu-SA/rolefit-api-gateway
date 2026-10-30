@@ -15,8 +15,16 @@ export interface RecruiterCaller {
   companyId: string;
 }
 
-/** Calls one unary Job Posting RPC. Rejects only with an AppError, never a raw gRPC error. */
-export type JobPostingCaller = <T = JobMessage>(method: string, request: object, caller?: RecruiterCaller) => Promise<T>;
+/**
+ * Calls one unary Job Posting RPC. Rejects only with an AppError, never a raw gRPC error.
+ * `requestId` is sent as the `x-request-id` metadata so the service can log it.
+ */
+export type JobPostingCaller = <T = JobMessage>(
+  method: string,
+  request: object,
+  caller?: RecruiterCaller,
+  requestId?: string,
+) => Promise<T>;
 
 type UnaryMethod = (
   request: object,
@@ -34,9 +42,10 @@ export function createJobPostingCaller(url: string, deadlineMs = DEADLINE_MS): J
   const Client = loaded.rolefit.jobposting.v1.JobPostingService;
   const client = new Client(url, grpc.credentials.createInsecure()) as grpc.Client & Record<string, UnaryMethod>;
 
-  return <T>(method: string, request: object, caller?: RecruiterCaller) =>
+  return <T>(method: string, request: object, caller?: RecruiterCaller, requestId?: string) =>
     new Promise<T>((resolve, reject) => {
       const metadata = new grpc.Metadata();
+      if (requestId) metadata.set('x-request-id', requestId);
       if (caller) {
         metadata.set('x-user-id', caller.userId);
         metadata.set('x-company-id', caller.companyId);

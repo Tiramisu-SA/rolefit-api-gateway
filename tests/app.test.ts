@@ -121,7 +121,7 @@ test('downstream CORS headers are replaced by the gateway ones', async () => {
     assert.equal(res.status, 200);
     assert.equal(res.headers.get('access-control-allow-origin'), ORIGIN);
     assert.equal(res.headers.get('access-control-allow-credentials'), null);
-    assert.equal(res.headers.get('access-control-expose-headers'), null);
+    assert.equal(res.headers.get('access-control-expose-headers'), 'X-Request-Id'); // not the service's X-Secret
   });
 });
 
@@ -157,6 +157,7 @@ test('CORS preflight is answered by the gateway with the configured origin', asy
     assert.equal(res.headers.get('access-control-allow-origin'), ORIGIN);
     assert.match(res.headers.get('access-control-allow-headers') ?? '', /Authorization/);
     assert.match(res.headers.get('access-control-allow-methods') ?? '', /PATCH/);
+    assert.match(res.headers.get('access-control-allow-headers') ?? '', /X-Request-Id/);
   });
 });
 
@@ -170,4 +171,58 @@ test('unknown routes are 404 ROUTE_NOT_FOUND', async () => {
     assert.equal(insideApi.status, 404);
     assert.equal((await errorOf(insideApi)).code, 'ROUTE_NOT_FOUND');
   });
+});
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+
+test('every response carries a new X-Request-Id, readable by the browser', async () => {
+  await withGateway(async (base) => {
+    const first = await fetch(`${base}/health`);
+    const second = await fetch(`${base}/nope`);
+    const id = first.headers.get('x-request-id') ?? '';
+    assert.match(id, UUID);
+    assert.match(second.headers.get('x-request-id') ?? '', UUID);
+    assert.notEqual(second.headers.get('x-request-id'), id);
+    assert.match(first.headers.get('access-control-expose-headers') ?? '', /X-Request-Id/);
+  });
+});
+
+test('the request id is forwarded to proxied services and kept when the client sends a safe one', async () => {
+  await withGateway(async (base) => {
+    const res = await fetch(`${base}/api/candidates/profiles/me`, { headers: { ...auth, 'X-Request-Id': 'web-abc_123.4' } });
+    assert.equal(res.headers.get('x-request-id'), 'web-abc_123.4');
+    assert.equal(((await res.json()) as Echo).headers['x-request-id'], 'web-abc_123.4');
+
+    const fresh = await fetch(`${base}/api/candidates/profiles/me`, { headers: auth });
+    const id = fresh.headers.get('x-request-id') ?? '';
+    assert.match(id, UUID);
+    assert.equal(((await fresh.json()) as Echo).headers['x-request-id'], id);
+  });
+});
+
+test('an unsafe incoming request id is replaced, not forwarded', async () => {
+  await withGateway(async (base) => {
+    for (const bad of ['has space', 'x'.repeat(129), 'a/b']) {
+      const res = await fetch(`${base}/api/candidates/profiles/me`, { headers: { ...auth, 'X-Request-Id': bad } });
+      const id = res.headers.get('x-request-id') ?? '';
+      assert.match(id, UUID, bad);
+      assert.equal(((await res.json()) as Echo).headers['x-request-id'], id);
+    }
+  });
+});
+
+test('the request id is passed to the Job Posting gRPC caller', async () => {
+  const seen: (string | undefined)[] = [];
+  const recordingJobs: JobPostingCaller = async <T>(_m: string, _r: object, _c?: unknown, requestId?: string) => {
+    seen.push(requestId);
+    return { jobs: [] } as T;
+  };
+  await withGateway(
+    async (base) => {
+      const res = await fetch(`${base}/api/jobs`, { headers: { ...auth, 'X-Request-Id': 'req-jobs-1' } });
+      assert.equal(res.status, 200);
+    },
+    { jobPosting: recordingJobs },
+  );
+  assert.deepEqual(seen, ['req-jobs-1']);
 });

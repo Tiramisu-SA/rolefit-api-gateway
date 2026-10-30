@@ -163,6 +163,14 @@ Service errors (for example `404 PROFILE_NOT_FOUND`) are passed through unchange
 are mapped: `INVALID_ARGUMENT` → 400 `VALIDATION_ERROR` (with `details`), `NOT_FOUND` → 404,
 `FAILED_PRECONDITION` → 409 `INVALID_STATE`, `PERMISSION_DENIED` → 403, `UNAUTHENTICATED` → 401.
 
+## Request id
+
+Every response has an `X-Request-Id` header. The gateway keeps the client's `X-Request-Id` if it is safe
+(1–128 letters, digits, `.`, `_`, `-`), otherwise it creates a UUID. The id is written in the gateway log line
+(`[<id>] GET /api/jobs 200 12.3ms`) and forwarded to the services: as the `X-Request-Id` header on proxied
+REST calls and as `x-request-id` gRPC metadata to Job Posting. To trace one request, search every
+service's logs for its id.
+
 ## Security note
 
 The gateway is the security boundary only if the services' ports (3001, 3002, 3004, 3006, 50051/50052) are not

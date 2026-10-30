@@ -27,8 +27,8 @@ export function createServiceProxy(target: string, service: string, upstreamPref
           if (name.startsWith('access-control-')) delete proxyRes.headers[name];
         }
       },
-      error: (err, _req, res) => {
-        logger.error(`${service} service unreachable:`, err.message);
+      error: (err, req, res) => {
+        logger.error(`[${req.id}] ${service} service unreachable:`, err.message);
         if (!('writeHead' in res)) {
           res.destroy();
           return;

@@ -28,6 +28,7 @@ const echoGetJob: grpc.UntypedServiceImplementation = {
         id: call.request.job_id,
         recruiter_id: String(call.metadata.get('x-user-id')[0] ?? ''),
         company_id: String(call.metadata.get('x-company-id')[0] ?? ''),
+        title: String(call.metadata.get('x-request-id')[0] ?? ''),
       },
     });
   },
@@ -43,6 +44,17 @@ test('sends the request and recruiter metadata, returns the proto message as a p
     assert.equal(res.job.company_id, 'co-x');
     // defaults: true + enums: String → unset enum comes back as its name
     assert.equal(res.job.status, 'JOB_STATUS_UNSPECIFIED');
+  } finally {
+    fake.stop();
+  }
+});
+
+test('sends the request id as x-request-id metadata', async () => {
+  const fake = await startFakeJobPosting(echoGetJob);
+  try {
+    const res = await createJobPostingCaller(fake.url)<{ job: Record<string, unknown> }>('GetJob', { job_id: 'job_1' }, undefined, 'req-42');
+    assert.equal(res.job.title, 'req-42');
+    assert.equal(res.job.recruiter_id, '');
   } finally {
     fake.stop();
   }

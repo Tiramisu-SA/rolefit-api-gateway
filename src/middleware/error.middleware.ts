@@ -19,7 +19,7 @@ function fromBodyParser(err: unknown): AppError | null {
  * Converts thrown errors into JSON responses. Unknown errors are logged and
  * answered with a generic 500 so internal details never leak.
  */
-export function errorHandler(err: unknown, _req: Request, res: Response, _next: NextFunction): void {
+export function errorHandler(err: unknown, req: Request, res: Response, _next: NextFunction): void {
   const appError = err instanceof AppError ? err : fromBodyParser(err);
   if (appError) {
     const details = appError.details ? { details: appError.details } : {};
@@ -27,6 +27,6 @@ export function errorHandler(err: unknown, _req: Request, res: Response, _next: 
     return;
   }
 
-  logger.error('Unhandled error', err);
+  logger.error(`[${req.id}] Unhandled error`, err);
   res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Internal server error' } });
 }

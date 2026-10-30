@@ -5,6 +5,7 @@ import { authenticate, requireSeeker } from './middleware/auth.middleware';
 import { cors } from './middleware/cors.middleware';
 import { errorHandler, notFoundHandler } from './middleware/error.middleware';
 import { requestLogger } from './middleware/logger.middleware';
+import { requestId } from './middleware/request-id.middleware';
 import { createServiceProxy } from './proxy/service-proxy';
 import { createApplicationRoutes } from './routes/application.routes';
 import { createJobRoutes } from './routes/job.routes';
@@ -32,6 +33,7 @@ export function createApp(deps: AppDependencies): Express {
   const app = express();
   app.disable('x-powered-by');
 
+  app.use(requestId);
   app.use(requestLogger);
   app.use(cors(deps.frontendUrl));
   app.get('/health', (_req, res) => {
