@@ -122,7 +122,10 @@ services:
       AUTH_MODE: jwt
       SUPABASE_URL: ${SUPABASE_URL}
       SUPABASE_PUBLISHABLE_KEY: ${SUPABASE_PUBLISHABLE_KEY}
-      AI_PROVIDER: rule-based
+      # rule-based unless deploy/.env sets AI_PROVIDER=gemini plus AI_API_KEY and AI_MODEL.
+      AI_PROVIDER: ${AI_PROVIDER:-rule-based}
+      AI_API_KEY: ${AI_API_KEY:-}
+      AI_MODEL: ${AI_MODEL:-}
     depends_on:
       mongo: { condition: service_healthy }
       candidate-profile: { condition: service_healthy }
