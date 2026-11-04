@@ -24,7 +24,7 @@ function readFieldErrors(err: GrpcLikeError): FieldError[] | undefined {
  * A gRPC error from the Job Posting Service → an HTTP AppError. Client errors
  * keep the service's message; unexpected errors are logged and hidden.
  */
-export function grpcErrorToAppError(err: GrpcLikeError): AppError {
+export function grpcErrorToAppError(err: GrpcLikeError, requestId?: string): AppError {
   const details = err.details || 'The job service returned an error';
   switch (err.code) {
     case status.INVALID_ARGUMENT:
@@ -39,9 +39,10 @@ export function grpcErrorToAppError(err: GrpcLikeError): AppError {
       return new AppError(details, 401, 'UNAUTHENTICATED');
     case status.UNAVAILABLE:
     case status.DEADLINE_EXCEEDED:
+      logger.error('job posting service unreachable', { requestId, upstream: 'job posting', code: err.code, reason: err.details });
       return serviceUnavailable('job posting');
     default:
-      logger.error('Unexpected Job Posting gRPC error', err.code, err.details);
+      logger.error('Unexpected Job Posting gRPC error', { requestId, upstream: 'job posting', code: err.code, reason: err.details });
       return new AppError('Something went wrong with the job service. Please try again.', 500, 'INTERNAL_ERROR');
   }
 }

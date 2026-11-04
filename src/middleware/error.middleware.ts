@@ -27,6 +27,6 @@ export function errorHandler(err: unknown, req: Request, res: Response, _next: N
     return;
   }
 
-  logger.error(`[${req.id}] Unhandled error`, err);
+  logger.error('Unhandled error', { requestId: req.id }, err);
   res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Internal server error' } });
 }

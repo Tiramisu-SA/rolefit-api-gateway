@@ -28,7 +28,7 @@ export function createServiceProxy(target: string, service: string, upstreamPref
         }
       },
       error: (err, req, res) => {
-        logger.error(`[${req.id}] ${service} service unreachable:`, err.message);
+        logger.error(`${service} service unreachable`, { requestId: req.id, upstream: service, reason: err.message });
         if (!('writeHead' in res)) {
           res.destroy();
           return;
