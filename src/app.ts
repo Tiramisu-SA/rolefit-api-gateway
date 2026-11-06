@@ -6,7 +6,7 @@ import { cors } from './middleware/cors.middleware';
 import { errorHandler, notFoundHandler } from './middleware/error.middleware';
 import { requestLogger } from './middleware/logger.middleware';
 import { requestId } from './middleware/request-id.middleware';
-import { createServiceProxy } from './proxy/service-proxy';
+import { AI_PROXY_TIMEOUT_MS, createServiceProxy } from './proxy/service-proxy';
 import { createApplicationRoutes } from './routes/application.routes';
 import { createJobRoutes } from './routes/job.routes';
 
@@ -41,11 +41,12 @@ export function createApp(deps: AppDependencies): Express {
   });
 
   app.use('/api', authenticate(deps.verifyClaims));
-  app.use('/api/candidates', createServiceProxy(deps.candidateProfileUrl, 'candidate profile'));
-  app.use('/api/discovery', createServiceProxy(deps.jobDiscoveryUrl, 'job discovery'));
+  // These three have AI routes (resume parsing, match explanation, resume tailoring), so they get the longer timeout.
+  app.use('/api/candidates', createServiceProxy(deps.candidateProfileUrl, 'candidate profile', '/api', AI_PROXY_TIMEOUT_MS));
+  app.use('/api/discovery', createServiceProxy(deps.jobDiscoveryUrl, 'job discovery', '/api', AI_PROXY_TIMEOUT_MS));
   app.use('/api/jobs', createJobRoutes(deps.jobPosting));
   app.use('/api/applications', createApplicationRoutes(deps.applicationServiceUrl));
-  app.use('/api/resumes', requireSeeker, createServiceProxy(deps.resumePreparationUrl, 'resume preparation'));
+  app.use('/api/resumes', requireSeeker, createServiceProxy(deps.resumePreparationUrl, 'resume preparation', '/api', AI_PROXY_TIMEOUT_MS));
 
   app.use(notFoundHandler);
   app.use(errorHandler);
