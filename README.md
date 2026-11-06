@@ -174,6 +174,46 @@ Every response has an `X-Request-Id` header. The gateway keeps the client's `X-R
 REST calls and as `x-request-id` gRPC metadata to Job Posting. To trace one request, search every
 service's logs for its id.
 
+## Measuring performance (NFR)
+
+[`scripts/measure-performance.mjs`](scripts/measure-performance.mjs) times the main routes through the gateway
+against the performance targets: normal requests within 2 s, AI requests within 10–20 s. It needs only Node 22+.
+
+```bash
+cd deploy && docker compose up -d --build && cd ..
+cp scripts/perf.env.example scripts/perf.env   # a test job seeker account with a profile
+node scripts/measure-performance.mjs           # --runs 20 --ai-runs 5 --concurrency 1 --only normal|ai
+```
+
+It signs in as the test seeker, makes one untimed warm-up call per route, then times `--runs` calls (AI routes:
+`--ai-runs`, one at a time, because each call uses the AI provider's quota) until the whole response has arrived.
+A route passes when every call succeeds and p95 is within its target. Results are printed and saved to
+`scripts/perf-results/` as JSON and as a Markdown table for the report. Each call sends
+`X-Request-Id: perf-<route>-<n>`, so a slow call can be found in the service logs. Generating a draft replaces
+the test seeker's draft for that job. For the AI numbers, set `AI_PROVIDER=gemini` in `deploy/.env` and check the
+Resume Preparation log for "AI tailoring failed", which means the rule-based fallback answered instead.
+
+### Load and stress tests
+
+[`scripts/load-test.mjs`](scripts/load-test.mjs) runs many virtual users at once. Each one repeats a seeker journey
+of 8 normal requests (job list, search, recommendations, job detail, job fit, resume draft, my applications,
+profile) with about 1 s of think time between them. AI routes are left out, because every call uses provider quota.
+
+```bash
+node scripts/load-test.mjs load     # 50 users for 60 s (after a 10 s ramp-up): --users --duration --ramp --think
+node scripts/load-test.mjs stress   # 10 → 25 → 50 → 100 → 150 → 200 users, 30 s each: --stages --stage-duration
+```
+
+- **Load test:** checks the expected load (the NFR's "tens of concurrently active users"). It passes when p95 ≤ 2 s
+  and fewer than 1% of requests fail.
+- **Stress test:** adds users stage by stage. It reports the largest stage still within the target, the stage where
+  the system breaks and its slowest action, and where throughput (successful requests per second) stops growing. It
+  stops early if more than half of the requests fail.
+
+Both print a table and save JSON and Markdown to `scripts/perf-results/`, with the likely meaning of each error code
+(for example, Supabase limiting token checks). The load generator runs on the same machine as the services, so the
+results show the limit of that machine, not of a production deployment.
+
 ## Security note
 
 The gateway is the security boundary only if the services' ports (3001, 3002, 3004, 3006, 50051/50052) are not
