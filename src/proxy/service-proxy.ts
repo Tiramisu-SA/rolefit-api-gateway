@@ -3,7 +3,13 @@ import { createProxyMiddleware } from 'http-proxy-middleware';
 import { serviceUnavailable } from '../utils/errors';
 import { logger } from '../utils/logger';
 
-const PROXY_TIMEOUT_MS = 10_000;
+export const PROXY_TIMEOUT_MS = 10_000;
+/**
+ * For services with routes that call the AI model (resume parsing, match
+ * explanation, resume tailoring). The NFR allows 10–20 s for AI operations, so
+ * the gateway must wait longer than that before it gives up.
+ */
+export const AI_PROXY_TIMEOUT_MS = 30_000;
 
 /**
  * Forwards everything under the mount path to the service's `upstreamPrefix`
@@ -12,11 +18,11 @@ const PROXY_TIMEOUT_MS = 10_000;
  * headers and the raw body stream go through as-is, and the service's status
  * and body come back unchanged (a 404 stays a 404).
  */
-export function createServiceProxy(target: string, service: string, upstreamPrefix = '/api') {
+export function createServiceProxy(target: string, service: string, upstreamPrefix = '/api', timeoutMs = PROXY_TIMEOUT_MS) {
   return createProxyMiddleware<Request, Response>({
     target,
     changeOrigin: true,
-    proxyTimeout: PROXY_TIMEOUT_MS,
+    proxyTimeout: timeoutMs,
     // The path seen here is relative to the mount, e.g. /profiles/me under /api/candidates.
     // A bare "/" (with or without a query) maps to the prefix itself: /?jobId=1 → /api/applications?jobId=1.
     pathRewrite: (path) => (path === '/' || path.startsWith('/?') ? upstreamPrefix + path.slice(1) : upstreamPrefix + path),
