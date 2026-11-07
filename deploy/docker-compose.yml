@@ -106,7 +106,7 @@ services:
       CANDIDATE_PROFILE_GRPC_URL: candidate-profile:50051
       JOB_POSTING_GRPC_URL: job-posting:50052
       # template unless deploy/.env sets AI_PROVIDER=gemini plus AI_API_KEY and AI_MODEL.
-      AI_PROVIDER: ${AI_PROVIDER:-template}
+      AI_PROVIDER: ${AI_PROVIDER:-}
       AI_API_KEY: ${AI_API_KEY:-}
       AI_MODEL: ${AI_MODEL:-}
     depends_on:
