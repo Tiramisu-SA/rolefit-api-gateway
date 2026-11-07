@@ -110,6 +110,17 @@ stay in the cloud; their URLs and keys come from `deploy/.env`, which is gitigno
 Resume Preparation uses the rule-based AI adapter by default. To use Gemini, add `AI_PROVIDER=gemini`, `AI_API_KEY`
 and `AI_MODEL` (the model id from AI Studio) to `deploy/.env`; it falls back to rule-based if Gemini fails.
 
+### Upgrading an existing stack
+
+The company database init (`deploy/postgres-init/002-company.sql`) only runs on a fresh Postgres volume. With an
+existing volume, run it once:
+
+```bash
+docker compose exec postgres psql -U postgres -f /docker-entrypoint-initdb.d/002-company.sql
+```
+
+Or reset local data entirely with `docker compose down -v`.
+
 If a build stops with `failed to receive status ... EOF`, Docker ran out of memory or disk space: free some space
 and build the images one at a time (`docker compose build api-gateway`, then the next).
 
