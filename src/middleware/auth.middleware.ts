@@ -41,7 +41,7 @@ function looksExpired(token: string): boolean {
 
 /**
  * Verifies the Supabase access token, then forwards the verified identity:
- * sets `X-User-Id`, `X-User-Role` and `X-Company-Id` from the token (client
+ * sets `X-User-Id`, `X-User-Role`, `X-Company-Id` and `X-Company-Name` from the token (client
  * values are always replaced or removed), and keeps `Authorization` so
  * services that verify tokens themselves still can.
  */
@@ -76,9 +76,12 @@ export function authenticate(verifyClaims: ClaimsVerifier) {
     // Downstream services trust these headers, so they only ever carry verified values.
     delete req.headers['x-user-role'];
     delete req.headers['x-company-id'];
+    delete req.headers['x-company-name'];
     req.headers['x-user-id'] = claims.sub;
     if (req.user.role) req.headers['x-user-role'] = req.user.role;
     if (companyId) req.headers['x-company-id'] = companyId;
+    // URI-encoded so names with accents or other non-ASCII characters are valid header values.
+    if (companyName) req.headers['x-company-name'] = encodeURIComponent(companyName);
     next();
   };
 }
