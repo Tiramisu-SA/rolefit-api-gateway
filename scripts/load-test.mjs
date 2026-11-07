@@ -6,7 +6,7 @@
  *   node scripts/load-test.mjs stress [--stages 10,25,50,100,150,200] [--stage-duration 30] [--think 1]
  *
  * Every virtual user acts as the test job seeker and walks a seeker journey of
- * eight normal (non-AI) requests in a loop, waiting a think time (±50%) between
+ * seven normal (non-AI) requests in a loop, waiting a think time (±50%) between
  * requests, like a person reading each page.
  *
  * - load:   a steady number of users, the NFR's expected "tens of concurrently
@@ -115,7 +115,6 @@ function journey(jobId) {
     { id: 'search', name: 'Search jobs', path: '/api/discovery/jobs/search' },
     { id: 'recommendations', name: 'Job recommendations', path: '/api/discovery/recommendations' },
     { id: 'job-detail', name: 'View one job', path: `/api/jobs/${job}` },
-    { id: 'job-fit', name: 'Job fit for one job', path: `/api/discovery/jobs/${job}/fit` },
     { id: 'resume-draft', name: 'View resume draft', path: `/api/resumes/drafts/${job}` },
     { id: 'my-applications', name: 'My applications', path: '/api/applications/mine' },
     { id: 'profile', name: 'View my profile', path: '/api/candidates/profiles/me' },
@@ -240,7 +239,7 @@ function setupLines(meta) {
   return [
     `- Gateway: ${meta.gatewayUrl}`,
     `- Machine: ${meta.machine} (the load generator runs on the same machine as the services)`,
-    `- Each virtual user repeats a seeker journey of 8 normal requests (job list, search, recommendations, job detail, job fit, resume draft, my applications, profile) with ${thinkMs / 1000} s ± 50% think time. AI routes are excluded.`,
+    `- Each virtual user repeats a seeker journey of 7 normal requests (job list, search, recommendations, job detail, resume draft, my applications, profile) with ${thinkMs / 1000} s ± 50% think time. AI routes (job fit and match explanation, which call Gemini since FR-10; resume tailoring) are excluded.`,
     `- Target (NFR): p95 ≤ ${NORMAL_TARGET_MS / 1000} s and error rate < ${pct(ERROR_BUDGET)}.`,
   ];
 }

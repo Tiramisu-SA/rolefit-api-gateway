@@ -239,8 +239,9 @@ Resume Preparation log for "AI tailoring failed", which means the rule-based fal
 ### Load and stress tests
 
 [`scripts/load-test.mjs`](scripts/load-test.mjs) runs many virtual users at once. Each one repeats a seeker journey
-of 8 normal requests (job list, search, recommendations, job detail, job fit, resume draft, my applications,
-profile) with about 1 s of think time between them. AI routes are left out, because every call uses provider quota.
+of 7 normal requests (job list, search, recommendations, job detail, resume draft, my applications, profile) with
+about 1 s of think time between them. AI routes are left out, because every call uses provider quota; since FR-10
+this includes job fit (`/fit`), which now asks the AI model for its explanation.
 
 ```bash
 node scripts/load-test.mjs load     # 50 users for 60 s (after a 10 s ramp-up): --users --duration --ramp --think

@@ -100,9 +100,10 @@ function buildRoutes(jobId) {
     normal('profile', 'View my profile', '/api/candidates/profiles/me'),
     normal('search', 'Search jobs', '/api/discovery/jobs/search'),
     normal('recommendations', 'Job recommendations', '/api/discovery/recommendations'),
-    normal('job-fit', 'Job fit for one job', `/api/discovery/jobs/${job}/fit`),
     normal('resume-draft', 'View resume draft', `/api/resumes/drafts/${job}`),
     normal('my-applications', 'My applications', '/api/applications/mine'),
+    // Both job fit and match call the AI model for the explanation (FR-10), so they are AI routes.
+    ai('job-fit', 'Job fit with explanation (FR-9/FR-10)', 'GET', `/api/discovery/jobs/${job}/fit`),
     ai('match', 'Match explanation (FR-10)', 'GET', `/api/discovery/jobs/${job}/match`),
     ai('resume-generate', 'Tailor resume (FR-11)', 'POST', `/api/resumes/drafts/${job}/generate`),
   ];
