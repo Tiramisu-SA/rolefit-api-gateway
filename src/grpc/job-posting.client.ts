@@ -51,7 +51,7 @@ export function createJobPostingCaller(url: string, deadlineMs = DEADLINE_MS): J
         metadata.set('x-company-id', caller.companyId);
       }
       client[method](request, metadata, { deadline: Date.now() + deadlineMs }, (err, response) => {
-        if (err) reject(grpcErrorToAppError(err));
+        if (err) reject(grpcErrorToAppError(err, requestId));
         else resolve(response as T);
       });
     });

@@ -166,13 +166,37 @@ Service errors (for example `404 PROFILE_NOT_FOUND`) are passed through unchange
 are mapped: `INVALID_ARGUMENT` → 400 `VALIDATION_ERROR` (with `details`), `NOT_FOUND` → 404,
 `FAILED_PRECONDITION` → 409 `INVALID_STATE`, `PERMISSION_DENIED` → 403, `UNAUTHENTICATED` → 401.
 
-## Request id
+## Request id and tracing
 
 Every response has an `X-Request-Id` header. The gateway keeps the client's `X-Request-Id` if it is safe
-(1–128 letters, digits, `.`, `_`, `-`), otherwise it creates a UUID. The id is written in the gateway log line
-(`[<id>] GET /api/jobs 200 12.3ms`) and forwarded to the services: as the `X-Request-Id` header on proxied
-REST calls and as `x-request-id` gRPC metadata to Job Posting. To trace one request, search every
-service's logs for its id.
+(1–128 letters, digits, `.`, `_`, `-`), otherwise it creates a UUID. Every service logs that id and passes it on:
+
+| Hop | How the id travels |
+| --- | --- |
+| HTTP | `X-Request-Id` header |
+| gRPC | `x-request-id` metadata |
+| RabbitMQ (Application → Notification) | AMQP correlation id. It is stored with the outbox event and the delivery job, so it survives both background workers. The event payload is unchanged. |
+
+Each service writes JSON logs, one object per line: `time`, `level`, `service`, `requestId`, `message` and any other
+fields. A request or RPC logs one line when it ends, with its status and `durationMs`. Logs leave out query strings,
+tokens and email addresses, and `/health` and `/ready` are not logged.
+
+To follow one request, copy `X-Request-Id` from the browser's Network tab, then search all the logs from `deploy/`:
+
+```bash
+docker compose logs --no-log-prefix | grep <id>            # Git Bash, macOS, Linux
+docker compose logs --no-log-prefix | Select-String <id>   # PowerShell
+```
+
+Docker groups the output by container, so use the `time` field to read it in order. For example, with Job Posting
+stopped, the `503` from recommendations shows which service failed (fields shortened here):
+
+```json
+{"service":"candidate-profile","requestId":"req-1","message":"rpc completed","rpc":"GetProfile","grpcStatus":"OK"}
+{"service":"job-discovery","requestId":"req-1","level":"error","message":"job service is unavailable","upstream":"job"}
+{"service":"job-discovery","requestId":"req-1","message":"request completed","path":"/api/recommendations","status":503}
+{"service":"api-gateway","requestId":"req-1","message":"request completed","path":"/api/discovery/recommendations","status":503}
+```
 
 ## Measuring performance (NFR)
 
