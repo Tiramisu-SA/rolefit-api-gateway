@@ -17,6 +17,8 @@ export interface GatewayConfig {
   applicationServiceUrl: string;
   /** Resume Preparation Service REST base URL, no trailing slash. */
   resumePreparationUrl: string;
+  /** Company Service REST base URL, no trailing slash. */
+  companyServiceUrl: string;
   /** Job Posting Service gRPC address (host:port). */
   jobPostingGrpcUrl: string;
   /** Supabase project URL used to verify access tokens. */
@@ -58,6 +60,7 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): GatewayConf
     jobDiscoveryUrl: httpUrl('JOB_DISCOVERY_SERVICE_URL'),
     applicationServiceUrl: httpUrl('APPLICATION_SERVICE_URL'),
     resumePreparationUrl: httpUrl('RESUME_PREPARATION_SERVICE_URL'),
+    companyServiceUrl: httpUrl('COMPANY_SERVICE_URL'),
     jobPostingGrpcUrl: required('JOB_POSTING_GRPC_URL'),
     supabaseUrl: httpUrl('SUPABASE_URL'),
     supabasePublishableKey: required('SUPABASE_PUBLISHABLE_KEY'),

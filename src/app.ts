@@ -8,6 +8,7 @@ import { requestLogger } from './middleware/logger.middleware';
 import { requestId } from './middleware/request-id.middleware';
 import { AI_PROXY_TIMEOUT_MS, createServiceProxy } from './proxy/service-proxy';
 import { createApplicationRoutes } from './routes/application.routes';
+import { createCompanyRoutes, createRecruiterRoutes } from './routes/company.routes';
 import { createJobRoutes } from './routes/job.routes';
 
 export interface AppDependencies {
@@ -21,6 +22,8 @@ export interface AppDependencies {
   applicationServiceUrl: string;
   /** Resume Preparation Service REST base URL. */
   resumePreparationUrl: string;
+  /** Company Service REST base URL. */
+  companyServiceUrl: string;
   /** The web frontend origin allowed by CORS, e.g. http://localhost:3000. */
   frontendUrl: string;
 }
@@ -46,6 +49,8 @@ export function createApp(deps: AppDependencies): Express {
   app.use('/api/discovery', createServiceProxy(deps.jobDiscoveryUrl, 'job discovery', '/api', AI_PROXY_TIMEOUT_MS));
   app.use('/api/jobs', createJobRoutes(deps.jobPosting));
   app.use('/api/applications', createApplicationRoutes(deps.applicationServiceUrl));
+  app.use('/api/companies', createCompanyRoutes(deps.companyServiceUrl));
+  app.use('/api/recruiters', createRecruiterRoutes(deps.companyServiceUrl));
   app.use('/api/resumes', requireSeeker, createServiceProxy(deps.resumePreparationUrl, 'resume preparation', '/api', AI_PROXY_TIMEOUT_MS));
 
   app.use(notFoundHandler);

@@ -1,4 +1,4 @@
-# Runs the whole RoleFit backend: the API Gateway, the six services and their
+# Runs the whole RoleFit backend: the API Gateway, the seven services and their
 # infrastructure. Usage (from this folder):
 #
 #   cp .env.example .env        # then fill in the secrets
@@ -34,6 +34,8 @@ services:
       - pgdata:/var/lib/postgresql/data
       # Creates the separate application and notification databases and users.
       - ../../rolefit-application-service/infra/init.sql:/docker-entrypoint-initdb.d/001-services.sql:ro
+      # Creates the company database and user (rolefit_company).
+      - ./postgres-init/002-company.sql:/docker-entrypoint-initdb.d/002-company.sql:ro
     healthcheck:
       <<: *healthcheck
       test: ["CMD-SHELL", "pg_isready -U postgres"]
@@ -173,6 +175,17 @@ services:
       <<: *healthcheck
       test: ["CMD", "node", "-e", "fetch('http://localhost:3005/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
 
+  company:
+    build: ../../rolefit-company-service
+    environment:
+      PORT: 3008
+      DATABASE_URL: postgresql://company:company-local@postgres:5432/rolefit_company
+    depends_on:
+      postgres: { condition: service_healthy }
+    healthcheck:
+      <<: *healthcheck
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3008/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+
   # ---------- Single public entry point ----------
 
   api-gateway:
@@ -184,6 +197,7 @@ services:
       JOB_DISCOVERY_SERVICE_URL: http://job-discovery:3002
       APPLICATION_SERVICE_URL: http://application:3004
       RESUME_PREPARATION_SERVICE_URL: http://resume-preparation:3006
+      COMPANY_SERVICE_URL: http://company:3008
       JOB_POSTING_GRPC_URL: job-posting:50052
       SUPABASE_URL: ${SUPABASE_URL}
       SUPABASE_PUBLISHABLE_KEY: ${SUPABASE_PUBLISHABLE_KEY}
@@ -195,6 +209,7 @@ services:
       job-discovery: { condition: service_healthy }
       resume-preparation: { condition: service_healthy }
       application: { condition: service_healthy }
+      company: { condition: service_healthy }
     healthcheck:
       <<: *healthcheck
       test: ["CMD", "node", "-e", "fetch('http://localhost:8080/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]

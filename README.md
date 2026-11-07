@@ -11,6 +11,7 @@ Frontend ──Authorization: Bearer <Supabase JWT>──▶ API Gateway (:8080)
                                                      ├─ HTTP ─▶ Job Discovery Service     (:3002)
                                                      ├─ HTTP ─▶ Application Service       (:3004)
                                                      ├─ HTTP ─▶ Resume Preparation Service (:3006)
+                                                     ├─ HTTP ─▶ Company Service           (:3008)
                                                      └─ gRPC ─▶ Job Posting Service       (:50052)
 ```
 
@@ -18,7 +19,8 @@ For every `/api/*` request the gateway:
 
 1. verifies the Supabase JWT (`supabase.auth.getClaims()`), returning `401` if it is missing, invalid or expired;
 2. sets `X-User-Id` (token `sub`), `X-User-Role` (`app_metadata.role`) and, for recruiters, `X-Company-Id`
-   (`app_metadata.company_id`, set by the Supabase signup trigger), replacing any client-sent values, and keeps
+   (`app_metadata.company_id`, set by the Supabase signup trigger) and `X-Company-Name` (`app_metadata.company_name`,
+   URI-encoded), replacing any client-sent values, and keeps
    `Authorization`. Job Posting receives the same user and company as gRPC metadata. Recruiter routes refuse a
    token without a company with `403 NO_COMPANY`;
 3. forwards the request and returns the service's status and body unchanged.
@@ -36,10 +38,13 @@ For every `/api/*` request the gateway:
 | `GET /api/applications?jobId=` (recruiters) | Application Service | same path |
 | `GET /api/applications/:applicationId` (seeker or recruiter) | Application Service | same path |
 | `PATCH /api/applications/:applicationId/status` (recruiters) | Application Service | same path |
+| `GET`, `PUT /api/companies/me` (recruiters with a company) | Company Service | same path |
+| `GET /api/companies/:companyId` (any signed-in user) | Company Service | same path |
+| `GET`, `PUT /api/recruiters/me` (recruiters with a company) | Company Service | same path |
 | `GET /api/jobs`, `GET /api/jobs/:jobId` | Job Posting Service | gRPC `ListJobs` (open jobs) / `GetJob` |
 | `/api/jobs/mine/*` (recruiters only) | Job Posting Service | gRPC `ListJobs`, `CreateJob`, `GetJob`, `UpdateJob`, `DeleteJob`, `PublishJob`, `CloseJob`, `ReopenJob`, `Get/Attach/DeleteResumeTemplate` |
 
-Other paths under `/api/applications` are a gateway `404`.
+Other paths under `/api/applications`, `/api/companies` and `/api/recruiters` are a gateway `404`.
 
 The Job Posting Service only speaks gRPC, so the gateway translates these REST calls to gRPC. Bodies and
 responses are the proto messages as JSON (snake_case, enum names such as `JOB_STATUS_OPEN`), unchanged.
@@ -55,7 +60,7 @@ responses are the proto messages as JSON (snake_case, enum names such as `JOB_ST
 
 ## Run the whole backend with Docker Compose
 
-[`deploy/docker-compose.yml`](deploy/docker-compose.yml) starts the gateway, all six services and their
+[`deploy/docker-compose.yml`](deploy/docker-compose.yml) starts the gateway, all seven services and their
 infrastructure (PostgreSQL, MongoDB, RabbitMQ, Mailpit) with one command. It needs Docker and the service repos
 cloned next to this one:
 
@@ -95,6 +100,7 @@ the services in dependency order and waits for each one's health check before st
 | `resume-preparation` | REST 3006, gRPC 50053 | no |
 | `application` | REST 3004 | no |
 | `notification` | health 3005 | no |
+| `company` | REST 3008 | no |
 | `postgres`, `mongo`, `rabbitmq`, `mailpit` | 5432, 27017, 5672, 1025 | RabbitMQ UI `:15672`, Mailpit inbox `:8025` |
 
 Only the gateway is published, so the services' identity headers can't be forged from outside (see
@@ -126,6 +132,7 @@ The gateway listens on `http://localhost:8080`. Start the services first:
 | Job Discovery | `npm run dev` in `rolefit-job-discovery-service` | REST 3002 |
 | Application | per its own repo (owner: Pun) | REST 3004 |
 | Resume Preparation | `npm run dev` in `rolefit-resume-preparation-service` | REST 3006, gRPC 50053 |
+| Company | `npm run dev` in `rolefit-company-service` (needs `DATABASE_URL`) | REST 3008 |
 | Frontend | `npm run dev` in `rolefit-frontend` (`NEXT_PUBLIC_API_GATEWAY_URL=http://localhost:8080`) | 3000 |
 
 Ports must not clash: Job Posting's health port (`HTTP_PORT`, default 3002) collides with Job Discovery's
@@ -142,6 +149,7 @@ for Job Posting and `PORT=3002` for Job Discovery.
 | `JOB_DISCOVERY_SERVICE_URL` | yes | – | e.g. `http://localhost:3002` |
 | `APPLICATION_SERVICE_URL` | yes | – | e.g. `http://localhost:3004` |
 | `RESUME_PREPARATION_SERVICE_URL` | yes | – | e.g. `http://localhost:3006` |
+| `COMPANY_SERVICE_URL` | yes | – | e.g. `http://localhost:3008` |
 | `JOB_POSTING_GRPC_URL` | yes | – | gRPC `host:port`, e.g. `localhost:50052` |
 | `SUPABASE_URL` | yes | – | Supabase project URL (Auth project) |
 | `SUPABASE_PUBLISHABLE_KEY` | yes | – | Supabase publishable key (never the service role key) |
