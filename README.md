@@ -102,7 +102,7 @@ Only the gateway is published, so the services' identity headers can't be forged
 stay in the cloud; their URLs and keys come from `deploy/.env`, which is gitignored.
 
 Resume Preparation uses the rule-based AI adapter by default. To use Gemini, add `AI_PROVIDER=gemini`, `AI_API_KEY`
-and `AI_MODEL` (the model id from AI Studio) to `deploy/.env`; it falls back to rule-based if Gemini fails.
+and `AI_MODEL` (the model id from AI Studio) to `deploy/.env`; it falls back to rule-based if Gemini fails. Job Discovery reads the same `AI_PROVIDER`/`AI_API_KEY`/`AI_MODEL` values (empty or rule-based gives template text; `gemini` uses Gemini with a fallback to the template).
 
 If a build stops with `failed to receive status ... EOF`, Docker ran out of memory or disk space: free some space
 and build the images one at a time (`docker compose build api-gateway`, then the next).
