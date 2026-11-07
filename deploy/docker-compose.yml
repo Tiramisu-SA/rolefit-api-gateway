@@ -151,6 +151,7 @@ services:
       RESUME_PREPARATION_GRPC_URL: resume-preparation:50053
       JOB_DISCOVERY_SERVICE_URL: http://job-discovery:3002
       CANDIDATE_PROFILE_SERVICE_URL: http://candidate-profile:3001
+      CANDIDATE_PROFILE_GRPC_URL: candidate-profile:50051
     depends_on:
       postgres: { condition: service_healthy }
       rabbitmq: { condition: service_healthy }
