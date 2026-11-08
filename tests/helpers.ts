@@ -60,7 +60,7 @@ export function echoService(name: string) {
   app.patch('/api/applications/app_foreign/status', (_req, res) => {
     res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Application belongs to another company' } });
   });
-  app.all('/{*rest}', express.raw({ type: () => true }), (req, res) => {
+  app.all('/{*rest}', express.raw({ type: () => true, limit: '10mb' }), (req, res) => {
     res.setHeader('Access-Control-Allow-Origin', 'https://evil.example'); // must not leak through the gateway
     res.setHeader('Access-Control-Allow-Credentials', 'true');
     res.setHeader('Access-Control-Expose-Headers', 'X-Secret');

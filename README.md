@@ -33,10 +33,11 @@ For every `/api/*` request the gateway:
 | `/api/candidates/*` | Candidate Profile Service | `/api/*`, e.g. `/api/candidates/profiles/me` → `/api/profiles/me` |
 | `/api/discovery/*` | Job Discovery Service | `/api/*`, e.g. `/api/discovery/recommendations` → `/api/recommendations` |
 | `/api/resumes/*` (seekers) | Resume Preparation Service | `/api/*`, e.g. `/api/resumes/drafts/:jobId/generate` → `/api/drafts/:jobId/generate` |
-| `POST /api/applications` (seekers) | Application Service | same path, body `{ jobId, coverLetter? }` |
+| `POST /api/applications` (seekers) | Application Service | same path, body `{ jobId, coverLetter?, resumeFile? }` (resumeFile is base64 JSON, up to ~7 MB; the gateway has no body limit) |
 | `GET /api/applications/mine` (seekers) | Application Service | same path |
 | `GET /api/applications?jobId=` (recruiters) | Application Service | same path |
 | `GET /api/applications/:applicationId` (seeker or recruiter) | Application Service | same path |
+| `GET /api/applications/:applicationId/resume-file` (seeker or recruiter) | Application Service | same path; returns the uploaded resume file |
 | `PATCH /api/applications/:applicationId/status` (recruiters) | Application Service | same path |
 | `GET`, `PUT /api/companies/me` (recruiters with a company) | Company Service | same path |
 | `GET /api/companies/:companyId` (any signed-in user) | Company Service | same path |
