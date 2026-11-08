@@ -122,7 +122,8 @@ test('downstream CORS headers are replaced by the gateway ones', async () => {
     assert.equal(res.status, 200);
     assert.equal(res.headers.get('access-control-allow-origin'), ORIGIN);
     assert.equal(res.headers.get('access-control-allow-credentials'), null);
-    assert.equal(res.headers.get('access-control-expose-headers'), 'X-Request-Id'); // not the service's X-Secret
+    // Not the service's X-Secret. Content-Disposition lets the frontend read a download's file name.
+    assert.equal(res.headers.get('access-control-expose-headers'), 'X-Request-Id, Content-Disposition');
   });
 });
 

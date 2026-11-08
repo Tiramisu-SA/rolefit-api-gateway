@@ -8,7 +8,8 @@ export function cors(allowedOrigin: string) {
   return (req: Request, res: Response, next: NextFunction): void => {
     res.setHeader('Access-Control-Allow-Origin', allowedOrigin);
     res.setHeader('Vary', 'Origin');
-    res.setHeader('Access-Control-Expose-Headers', 'X-Request-Id');
+    // Content-Disposition: the frontend reads a downloaded file's name (resume template, uploaded resume).
+    res.setHeader('Access-Control-Expose-Headers', 'X-Request-Id, Content-Disposition');
     if (req.method === 'OPTIONS') {
       res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
       res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type, X-File-Name, X-Request-Id');
