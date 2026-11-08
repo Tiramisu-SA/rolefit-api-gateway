@@ -10,6 +10,7 @@ import { AI_PROXY_TIMEOUT_MS, createServiceProxy } from './proxy/service-proxy';
 import { createApplicationRoutes } from './routes/application.routes';
 import { createCompanyRoutes, createRecruiterRoutes } from './routes/company.routes';
 import { createJobRoutes } from './routes/job.routes';
+import { createNotificationRoutes } from './routes/notification.routes';
 
 export interface AppDependencies {
   /** Verifies Supabase access tokens. */
@@ -20,6 +21,8 @@ export interface AppDependencies {
   jobDiscoveryUrl: string;
   /** Application Service REST base URL (still in development). */
   applicationServiceUrl: string;
+  /** Notification Service REST base URL. */
+  notificationServiceUrl: string;
   /** Resume Preparation Service REST base URL. */
   resumePreparationUrl: string;
   /** Company Service REST base URL. */
@@ -49,6 +52,7 @@ export function createApp(deps: AppDependencies): Express {
   app.use('/api/discovery', createServiceProxy(deps.jobDiscoveryUrl, 'job discovery', '/api', AI_PROXY_TIMEOUT_MS));
   app.use('/api/jobs', createJobRoutes(deps.jobPosting));
   app.use('/api/applications', createApplicationRoutes(deps.applicationServiceUrl));
+  app.use('/api/notifications', createNotificationRoutes(deps.notificationServiceUrl));
   app.use('/api/companies', createCompanyRoutes(deps.companyServiceUrl));
   app.use('/api/recruiters', createRecruiterRoutes(deps.companyServiceUrl));
   app.use('/api/resumes', requireSeeker, createServiceProxy(deps.resumePreparationUrl, 'resume preparation', '/api', AI_PROXY_TIMEOUT_MS));

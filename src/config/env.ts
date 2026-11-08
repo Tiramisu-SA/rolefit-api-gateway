@@ -15,6 +15,8 @@ export interface GatewayConfig {
   jobDiscoveryUrl: string;
   /** Application Service REST base URL, no trailing slash. */
   applicationServiceUrl: string;
+  /** Notification Service REST base URL, no trailing slash. */
+  notificationServiceUrl: string;
   /** Resume Preparation Service REST base URL, no trailing slash. */
   resumePreparationUrl: string;
   /** Company Service REST base URL, no trailing slash. */
@@ -59,6 +61,7 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): GatewayConf
     candidateProfileUrl: httpUrl('CANDIDATE_PROFILE_SERVICE_URL'),
     jobDiscoveryUrl: httpUrl('JOB_DISCOVERY_SERVICE_URL'),
     applicationServiceUrl: httpUrl('APPLICATION_SERVICE_URL'),
+    notificationServiceUrl: httpUrl('NOTIFICATION_SERVICE_URL'),
     resumePreparationUrl: httpUrl('RESUME_PREPARATION_SERVICE_URL'),
     companyServiceUrl: httpUrl('COMPANY_SERVICE_URL'),
     jobPostingGrpcUrl: required('JOB_POSTING_GRPC_URL'),

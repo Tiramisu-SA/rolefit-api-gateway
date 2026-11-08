@@ -19,6 +19,7 @@ async function withGateway(fn: (base: string) => Promise<void>, overrides: Parti
       candidateProfileUrl: echo.base,
       jobDiscoveryUrl: echo.base,
       applicationServiceUrl: echo.base,
+      notificationServiceUrl: 'http://127.0.0.1:1',
       resumePreparationUrl: echo.base,
       companyServiceUrl: 'http://127.0.0.1:1',
       frontendUrl: 'http://localhost:3000',

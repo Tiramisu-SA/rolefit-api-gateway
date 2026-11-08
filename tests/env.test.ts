@@ -8,6 +8,7 @@ const valid = {
   CANDIDATE_PROFILE_SERVICE_URL: 'http://localhost:3001/',
   JOB_DISCOVERY_SERVICE_URL: 'http://localhost:3002',
   APPLICATION_SERVICE_URL: 'http://localhost:3004/',
+  NOTIFICATION_SERVICE_URL: 'http://localhost:3005/',
   RESUME_PREPARATION_SERVICE_URL: 'http://localhost:3006',
   COMPANY_SERVICE_URL: 'http://localhost:3008/',
   JOB_POSTING_GRPC_URL: 'localhost:50052',
@@ -21,6 +22,7 @@ test('loadConfig reads every variable and strips trailing slashes', () => {
   assert.equal(config.candidateProfileUrl, 'http://localhost:3001');
   assert.equal(config.jobDiscoveryUrl, 'http://localhost:3002');
   assert.equal(config.applicationServiceUrl, 'http://localhost:3004');
+  assert.equal(config.notificationServiceUrl, 'http://localhost:3005');
   assert.equal(config.resumePreparationUrl, 'http://localhost:3006');
   assert.equal(config.companyServiceUrl, 'http://localhost:3008');
   assert.equal(config.jobPostingGrpcUrl, 'localhost:50052');
@@ -43,6 +45,7 @@ test('loadConfig reports every missing or invalid variable at once', () => {
         'CANDIDATE_PROFILE_SERVICE_URL must start with http',
         'JOB_DISCOVERY_SERVICE_URL is required',
         'APPLICATION_SERVICE_URL is required',
+        'NOTIFICATION_SERVICE_URL is required',
         'RESUME_PREPARATION_SERVICE_URL is required',
         'JOB_POSTING_GRPC_URL is required',
         'SUPABASE_URL is required',
