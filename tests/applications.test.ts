@@ -181,3 +181,42 @@ test('service error statuses pass through; missing token is 401; service down is
     assert.deepEqual(await errorOf(res), { code: 'SERVICE_UNAVAILABLE', message: 'The application service is unavailable. Please try again.' });
   }, 'http://127.0.0.1:1');
 });
+
+test('resume-file download is allowed for a seeker or a recruiter with a company and is proxied unchanged', async () => {
+  await withGateway(async (base) => {
+    for (const token of ['seeker-token', 'recruiter-token']) {
+      const res = await fetch(`${base}/api/applications/app_1/resume-file`, { headers: as(token, forged) });
+      assert.equal(res.status, 200);
+      const echo = (await res.json()) as Echo;
+      assert.equal(echo.method, 'GET');
+      assert.equal(echo.url, '/api/applications/app_1/resume-file');
+      assert.equal(echo.headers.authorization, `Bearer ${token}`);
+      assert.notEqual(echo.headers['x-user-id'], 'forged');
+    }
+  });
+});
+
+test('resume-file download is refused for a recruiter without a company, a token without a role, and no token', async () => {
+  await withGateway(async (base) => {
+    const noCompany = await fetch(`${base}/api/applications/app_1/resume-file`, { headers: as('recruiter-no-company-token') });
+    assert.equal(noCompany.status, 403);
+    assert.equal((await errorOf(noCompany)).code, 'NO_COMPANY');
+    const noRole = await fetch(`${base}/api/applications/app_1/resume-file`, { headers: as('no-role-token') });
+    assert.equal(noRole.status, 403);
+    assert.equal((await fetch(`${base}/api/applications/app_1/resume-file`)).status, 401);
+  });
+});
+
+test('a ~7 MB JSON body reaches the Application Service on POST /api/applications', async () => {
+  await withGateway(async (base) => {
+    const payload = JSON.stringify({ jobId: 'job_1', resumeFile: { fileName: 'cv.pdf', contentBase64: 'A'.repeat(7 * 1024 * 1024) } });
+    const res = await fetch(`${base}/api/applications`, {
+      method: 'POST',
+      headers: as('seeker-token', { 'Content-Type': 'application/json' }),
+      body: payload,
+    });
+    assert.equal(res.status, 201);
+    const echo = (await res.json()) as Echo;
+    assert.equal(echo.body!.length, payload.length);
+  });
+});
