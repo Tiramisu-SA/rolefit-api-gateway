@@ -201,6 +201,7 @@ services:
       CANDIDATE_PROFILE_SERVICE_URL: http://candidate-profile:3001
       JOB_DISCOVERY_SERVICE_URL: http://job-discovery:3002
       APPLICATION_SERVICE_URL: http://application:3004
+      NOTIFICATION_SERVICE_URL: http://notification:3005
       RESUME_PREPARATION_SERVICE_URL: http://resume-preparation:3006
       COMPANY_SERVICE_URL: http://company:3008
       JOB_POSTING_GRPC_URL: job-posting:50052
@@ -214,6 +215,7 @@ services:
       job-discovery: { condition: service_healthy }
       resume-preparation: { condition: service_healthy }
       application: { condition: service_healthy }
+      notification: { condition: service_started } # a broken Notification Service only breaks the bell
       company: { condition: service_started } # a broken Company Service only breaks company routes
     healthcheck:
       <<: *healthcheck

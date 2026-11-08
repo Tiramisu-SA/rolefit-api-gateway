@@ -23,6 +23,7 @@ async function withGateway(fn: (base: string) => Promise<void>) {
       candidateProfileUrl: 'http://127.0.0.1:1',
       jobDiscoveryUrl: 'http://127.0.0.1:1',
       applicationServiceUrl: 'http://127.0.0.1:1',
+      notificationServiceUrl: 'http://127.0.0.1:1',
       resumePreparationUrl: 'http://127.0.0.1:1',
       companyServiceUrl: company.base,
       frontendUrl: 'http://localhost:3000',

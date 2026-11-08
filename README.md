@@ -39,13 +39,15 @@ For every `/api/*` request the gateway:
 | `GET /api/applications/:applicationId` (seeker or recruiter) | Application Service | same path |
 | `GET /api/applications/:applicationId/resume-file` (seeker or recruiter) | Application Service | same path; returns the uploaded resume file |
 | `PATCH /api/applications/:applicationId/status` (recruiters) | Application Service | same path |
+| `GET /api/notifications/mine` (seekers) | Notification Service | same path |
+| `POST /api/notifications/mine/read` (seekers) | Notification Service | same path; marks all as read |
 | `GET`, `PUT /api/companies/me` (recruiters with a company) | Company Service | same path |
 | `GET /api/companies/:companyId` (any signed-in user) | Company Service | same path |
 | `GET`, `PUT /api/recruiters/me` (recruiters with a company) | Company Service | same path |
 | `GET /api/jobs`, `GET /api/jobs/:jobId` | Job Posting Service | gRPC `ListJobs` (open jobs) / `GetJob` |
 | `/api/jobs/mine/*` (recruiters only) | Job Posting Service | gRPC `ListJobs`, `CreateJob`, `GetJob`, `UpdateJob`, `DeleteJob`, `PublishJob`, `CloseJob`, `ReopenJob`, `Get/Attach/DeleteResumeTemplate` |
 
-Other paths under `/api/applications`, `/api/companies` and `/api/recruiters` are a gateway `404`.
+Other paths under `/api/applications`, `/api/notifications`, `/api/companies` and `/api/recruiters` are a gateway `404`.
 
 The Job Posting Service only speaks gRPC, so the gateway translates these REST calls to gRPC. Bodies and
 responses are the proto messages as JSON (snake_case, enum names such as `JOB_STATUS_OPEN`), unchanged.
@@ -161,6 +163,7 @@ for Job Posting and `PORT=3002` for Job Discovery.
 | `CANDIDATE_PROFILE_SERVICE_URL` | yes | – | e.g. `http://localhost:3001` |
 | `JOB_DISCOVERY_SERVICE_URL` | yes | – | e.g. `http://localhost:3002` |
 | `APPLICATION_SERVICE_URL` | yes | – | e.g. `http://localhost:3004` |
+| `NOTIFICATION_SERVICE_URL` | yes | – | e.g. `http://localhost:3005` |
 | `RESUME_PREPARATION_SERVICE_URL` | yes | – | e.g. `http://localhost:3006` |
 | `COMPANY_SERVICE_URL` | yes | – | e.g. `http://localhost:3008` |
 | `JOB_POSTING_GRPC_URL` | yes | – | gRPC `host:port`, e.g. `localhost:50052` |
