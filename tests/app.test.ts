@@ -51,7 +51,7 @@ test('GET /health needs no token', async () => {
 
 test('protected routes without a token are 401 MISSING_TOKEN; bad tokens are 401 INVALID_TOKEN', async () => {
   await withGateway(async (base) => {
-    for (const path of ['/api/candidates/profiles/me', '/api/discovery/recommendations', '/api/jobs']) {
+    for (const path of ['/api/candidates/profiles/me', '/api/discovery/recommendations', '/api/jobs', '/api/jobs/job_1/resume-template/download']) {
       const res = await fetch(base + path);
       assert.equal(res.status, 401, path);
       assert.equal((await errorOf(res)).code, 'MISSING_TOKEN');

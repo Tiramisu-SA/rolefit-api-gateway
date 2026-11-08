@@ -58,6 +58,7 @@ responses are the proto messages as JSON (snake_case, enum names such as `JOB_ST
 | `GET / PUT / DELETE /api/jobs/mine/:jobId` | `GetJob` / `UpdateJob` / `DeleteJob` |
 | `POST /api/jobs/mine/:jobId/publish` · `close` · `reopen` | `PublishJob` · `CloseJob` · `ReopenJob` |
 | `GET / PUT / DELETE /api/jobs/mine/:jobId/resume-template` | `GetResumeTemplate` / `AttachResumeTemplate` (raw body, `Content-Type`, `X-File-Name`) / `DeleteResumeTemplate` |
+| `GET /api/jobs/:jobId/resume-template/download` (any signed-in user) | `GetResumeTemplate` with `include_content: true`; answers with the file bytes, `Content-Disposition: attachment`, `nosniff`, `no-store` |
 
 ## Run the whole backend with Docker Compose
 

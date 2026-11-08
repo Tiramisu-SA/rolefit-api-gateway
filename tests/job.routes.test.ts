@@ -176,3 +176,53 @@ test('a recruiter without a company gets 403 NO_COMPANY and no RPC is made', asy
   });
   assert.equal(calls.length, 0);
 });
+
+const template = (over: Record<string, unknown> = {}) => ({
+  template: { id: 'tpl_1', file_name: 'Standard resume.docx', content_type: 'application/pdf', content: Buffer.from('%PDF-1.7 bytes'), ...over },
+});
+
+test('GET /api/jobs/:jobId/resume-template/download streams the bytes with safe headers, for a seeker, without identity', async () => {
+  const { call, calls } = recording(template());
+  await withJobs('seeker', call, async (base) => {
+    const res = await fetch(`${base}/api/jobs/job_1/resume-template/download`);
+    assert.equal(res.status, 200);
+    assert.equal(res.headers.get('content-type'), 'application/pdf');
+    assert.equal(res.headers.get('content-disposition'), "attachment; filename*=UTF-8''Standard%20resume.docx");
+    assert.equal(res.headers.get('x-content-type-options'), 'nosniff');
+    assert.equal(res.headers.get('cache-control'), 'private, no-store');
+    assert.equal(Buffer.from(await res.arrayBuffer()).toString('utf8'), '%PDF-1.7 bytes');
+  });
+  assert.deepEqual(calls, [{ method: 'GetResumeTemplate', request: { job_id: 'job_1', include_content: true }, caller: undefined }]);
+});
+
+test('resume template download: any signed-in recruiter can download too', async () => {
+  const { call } = recording(template());
+  await withJobs('recruiter-no-company', call, async (base) => {
+    assert.equal((await fetch(`${base}/api/jobs/job_1/resume-template/download`)).status, 200);
+  });
+});
+
+test('resume template download: non-ASCII and special characters in the file name are encoded', async () => {
+  const { call } = recording(template({ file_name: 'แม่แบบ "a" (1)*\r\nX: y.pdf' }));
+  await withJobs('seeker', call, async (base) => {
+    const res = await fetch(`${base}/api/jobs/job_1/resume-template/download`);
+    const header = res.headers.get('content-disposition')!;
+    assert.ok(header.startsWith("attachment; filename*=UTF-8''"));
+    const encoded = header.slice("attachment; filename*=UTF-8''".length);
+    assert.match(encoded, /^[A-Za-z0-9._%~-]+$/);
+    assert.equal(decodeURIComponent(encoded), 'แม่แบบ "a" (1)*\r\nX: y.pdf');
+  });
+});
+
+test('resume template download: NOT_FOUND from Job Posting is a 404 with its message', async () => {
+  const call: JobPostingCaller = async () => {
+    throw new AppError('Job has no resume template', 404, 'NOT_FOUND');
+  };
+  await withJobs('seeker', call, async (base) => {
+    const res = await fetch(`${base}/api/jobs/job_1/resume-template/download`);
+    assert.equal(res.status, 404);
+    const error = await errorOf(res);
+    assert.equal(error.code, 'NOT_FOUND');
+    assert.equal(error.message, 'Job has no resume template');
+  });
+});
