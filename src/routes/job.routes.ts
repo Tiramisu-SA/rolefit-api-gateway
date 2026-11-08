@@ -17,6 +17,11 @@ function decodeFileName(header: string | undefined): string {
   }
 }
 
+/** RFC 5987 `filename*` value: percent-encodes everything outside the attr-char set (also `'()*`). */
+function encodeFileName(name: string): string {
+  return encodeURIComponent(name).replace(/['()*]/g, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`);
+}
+
 /**
  * REST → gRPC translation for the Job Posting Service, mounted at /api/jobs.
  * Request bodies and responses are proto-shaped (snake_case, prefixed enums)
@@ -103,6 +108,22 @@ export function createJobRoutes(jobPosting: JobPostingCaller): Router {
 
   router.get('/:jobId', async (req, res) => {
     res.json(await jobPosting('GetJob', { job_id: req.params.jobId }, undefined, req.id));
+  });
+
+  router.get('/:jobId/resume-template/download', async (req, res) => {
+    const { template } = await jobPosting<{ template?: { file_name?: string; content_type?: string; content?: Uint8Array } }>(
+      'GetResumeTemplate',
+      { job_id: req.params.jobId, include_content: true },
+      undefined,
+      req.id,
+    );
+    res.set({
+      'Content-Type': text(template?.content_type) || 'application/octet-stream',
+      'Content-Disposition': `attachment; filename*=UTF-8''${encodeFileName(text(template?.file_name) || 'resume-template')}`,
+      'X-Content-Type-Options': 'nosniff',
+      'Cache-Control': 'private, no-store',
+    });
+    res.end(Buffer.from(template?.content ?? []));
   });
 
   return router;

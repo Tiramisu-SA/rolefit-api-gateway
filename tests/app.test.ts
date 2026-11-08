@@ -51,7 +51,7 @@ test('GET /health needs no token', async () => {
 
 test('protected routes without a token are 401 MISSING_TOKEN; bad tokens are 401 INVALID_TOKEN', async () => {
   await withGateway(async (base) => {
-    for (const path of ['/api/candidates/profiles/me', '/api/discovery/recommendations', '/api/jobs']) {
+    for (const path of ['/api/candidates/profiles/me', '/api/discovery/recommendations', '/api/jobs', '/api/jobs/job_1/resume-template/download']) {
       const res = await fetch(base + path);
       assert.equal(res.status, 401, path);
       assert.equal((await errorOf(res)).code, 'MISSING_TOKEN');
@@ -122,7 +122,8 @@ test('downstream CORS headers are replaced by the gateway ones', async () => {
     assert.equal(res.status, 200);
     assert.equal(res.headers.get('access-control-allow-origin'), ORIGIN);
     assert.equal(res.headers.get('access-control-allow-credentials'), null);
-    assert.equal(res.headers.get('access-control-expose-headers'), 'X-Request-Id'); // not the service's X-Secret
+    // Not the service's X-Secret. Content-Disposition lets the frontend read a download's file name.
+    assert.equal(res.headers.get('access-control-expose-headers'), 'X-Request-Id, Content-Disposition');
   });
 });
 
